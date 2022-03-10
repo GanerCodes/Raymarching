@@ -117,7 +117,10 @@ vec3 f(vec3 p, bool is_dist) {
     );
     float table = min(disc, table_legs);
     
-    float c = min(min(c1, c2), table);
+    vec3 od = cd + vec3(0.0, -0.55, 0.0);
+    float orb = sdf_sphere(od, 0.55);
+    
+    float c = min(min(c1, c2), min(table, orb));
     
     if(is_dist) {
         return vec3(c);
@@ -130,8 +133,11 @@ vec3 f(vec3 p, bool is_dist) {
             return vec3(0.05, 0.3, 0.12 + 1.075 - pow(min(1.0, 3.4 - length(cd.xz)), 2.0));
         if(table_legs <= I)
             return vec3(0.05, 0.3, 0.15 + 0.05 * sin(cd.y));
+        if(orb <= I)
+            return vec3(sin(
+                time + sum(od.xy * 2.0)*sin(2.0 * time) + (1.0 * od.z)*cos(3.0 * time)
+            ) * 0.1, 0.5, 1.0 - length(p) * 0.03);
         return vec3(0.0, 0.0, 0.25 + 0.005 * sin(sum(3.0 * p)));
-        // return vec3(sum(p.xy) * 0.0075, 0.5, 1.0 - length(p) * 0.03);
     }
 }
 
