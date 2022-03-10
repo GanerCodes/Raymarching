@@ -1,0 +1,74 @@
+class p:
+    def __init__(self, x=None, y=None, z=None):
+        self.x = x
+        self.y = y
+        self.z = z
+    def __add__(self, p2):
+        return p(self.x + p2.x,self.y + p2.y,self.z + p2.z)
+    def __sub__(self, p2):
+        return p(self.x - p2.x,self.y - p2.y,self.z - p2.z)
+    def __repr__(self):
+        return "({}, {}, {})".format(self.x, self.y, self.z)
+
+def length(l):
+    return sqrt(l.x*l.x+l.y*l.y+l.z*l.z)
+    
+def mix(a, b, v):
+    return p(
+        lerp(a.x, b.x, v),
+        lerp(a.y, b.y, v),
+        lerp(a.z, b.z, v),
+    )
+    
+a = p(-0.3, -0.5, 0.25)
+b = p(1, 1, 0.5)
+v = p(0.75, -1, -1)
+O = p(0, 0, 0)
+
+pushMatrix()
+stroke(255)
+strokeWeight(0.1)
+translate(width / 2, height / 2)
+rotateX((2.0*PI*mouseX)/width )
+rotateZ((2.0*PI*mouseY)/height)
+scale(100)
+point(a.x, a.y, a.z)
+point(b.x, b.y, b.z)
+point(v.x, v.y, v.z)
+strokeWeight(0.05)
+line(a.x, a.y, a.z, b.x, b.y, b.z)
+stroke(64, 64, 255)
+line(a.x, a.y, a.z, v.x, v.y, v.z)
+line(b.x, b.y, b.z, v.x, v.y, v.z)
+stroke(64, 196, 64)
+line(O.x, O.y, O.z, v.x, v.y, v.z)
+popMatrix()
+
+
+def keyPressed():
+    global a,b,v,O
+    
+    a = PVector.random3D()
+    b = PVector.random3D()
+    v = PVector.random3D()
+
+    base = length(b - a)
+    s1 = length(v - a)
+    s2 = length(v - b)
+
+    s = (base + s1 + s2) / 2
+
+    area = sqrt(s * (s - base) * (s - s1) * (s - s2))
+
+    h = 2 * area / base
+
+    q_a = (-2*a.x*b.x+a.x**2+b.x**2-2*a.y*b.y+a.y**2+b.y**2-2*a.z*b.z+a.z**2+b.z**2)
+    q_b = (-2*b.x**2+2*a.x*b.x-2*b.y**2+2*a.y*b.y-2*b.z**2+2*a.z*b.z-2*a.x*v.x+2*b.x*v.x-2*a.y*v.y+2*b.y*v.y-2*a.z*v.z+2*b.z*v.z)
+    q_c = (b.x**2+b.y**2+b.z**2-2*b.x*v.x+v.x**2-2*b.y*v.y+v.y**2-2*b.z*v.z+v.z**2) - h**2
+
+    w = ( (-q_b+sqrt(abs(q_b**2 - 4*q_a*q_c)))/(2 * q_a) )
+
+    O = mix(b, a, w)
+    print(a, b)
+    print(v)
+    print(O, w)
