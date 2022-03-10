@@ -39,6 +39,14 @@ float dist(vec2 p1,vec2 p2){return length(p2-p1);}
 float dist(vec3 p1,vec3 p2){return length(p2-p1);}
 float dist(vec4 p1,vec4 p2){return length(p2-p1);}
 
+vec2 rotCentered(vec2 p, vec2 a, float r) {
+    vec2 adj = p - a;
+    vec2 sc = vec2(sin(r), cos(r));
+    return vec2(
+        adj.x*sc.y - adj.y*sc.x,
+        adj.x*sc.x + adj.y*sc.y
+    ) + a;
+}
 vec3 rot_XY(vec3 p,float r){return vec3(p.x*cos(r)-p.y*sin(r),p.x*sin(r)+p.y*cos(r),p.z);}
 vec3 rot_XZ(vec3 p,float r){return vec3(p.x*cos(r)-p.z*sin(r),p.y,p.x*sin(r)+p.z*cos(r));}
 vec3 rot_YZ(vec3 p,float r){return vec3(p.x,p.y*cos(r)-p.z*sin(r),p.y*sin(r)+p.z*cos(r));}
@@ -75,7 +83,7 @@ vec3 f(vec3 p, bool is_dist) {
     float time = u_time;
     
     float thk = 0.1;
-    float rthk = 0.25 * thk;
+    float rthk = 0.5 * thk;
     
     float l1 = sdf_line(p, vec3(-5.0, -3.0, -20.0), vec3( 5.0, -3.0, -20.0), thk);
     
@@ -96,13 +104,18 @@ vec3 f(vec3 p, bool is_dist) {
     
     vec3 cd = p + vec3(0.0, 1.35, 15.0);
     float disc = sdf_cylinder(cd, 2.5, 0.05);
-    
-    vec3 ld = p + vec3(-1.0, 2.1, 15.0);
-    float leg1 = sdf_cylinder(ld, 0.2, 0.8);
-    
-    float legs = leg1;
-    
-    float table = min(disc, legs);
+    vec3 ld = p + vec3(0, 2.15, 15.0);
+    float legCount = 6.0;
+    float a = mod(atan(ld.z, ld.x) + PI / legCount, PI / (0.5 * legCount)) - PI / legCount;
+    float d = length(ld.xz);
+    ld.xz = d * vec2(cos(a), sin(a));
+    ld.x -= 2.0;
+    float table_legs = mix(
+        sdf_cylinder(ld, 0.15, 0.85),
+        sdf_sphere(ld + vec3(0.0, 0.45, 0.0), 0.25),
+        0.075
+    );
+    float table = min(disc, table_legs);
     
     float c = min(min(c1, c2), table);
     
@@ -110,13 +123,15 @@ vec3 f(vec3 p, bool is_dist) {
         return vec3(c);
     }else{
         float I = 2.0 * MIN_DIST_THRESHOLD;
-        if(c1 <= I) {
-            return vec3(sum(p.xy) * 0.0075, 0.5, 1.0 - length(p) * 0.03);
-        }
-        if(disc <= I) {
-            return vec3(0.05, 0.3, 0.12 + 1.075 - min(1.0, 3.3 - length(cd.xz)));
-        }
-        return vec3(0.0, 0.0, 0.25 + 0.01 * sin(p.x + vmax(abs(p.xz))));
+        
+        if(c1 <= I)
+            return vec3(0.0, 0.0, 0.5);
+        if(disc <= I)
+            return vec3(0.05, 0.3, 0.12 + 1.075 - pow(min(1.0, 3.4 - length(cd.xz)), 2.0));
+        if(table_legs <= I)
+            return vec3(0.05, 0.3, 0.15 + 0.05 * sin(cd.y));
+        return vec3(0.0, 0.0, 0.25 + 0.005 * sin(sum(3.0 * p)));
+        // return vec3(sum(p.xy) * 0.0075, 0.5, 1.0 - length(p) * 0.03);
     }
 }
 
@@ -162,7 +177,7 @@ void main() {
         vec3 lightLoc = raymarch(
             lightSource,
             normalize(ray - lightSource),
-            MAX_ITTERS / 1,
+            MAX_ITTERS / 2,
             vec2(
                 MIN_DIST_THRESHOLD * 5,
                 200
