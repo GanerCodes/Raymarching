@@ -81,105 +81,121 @@ float sdf_line(vec3 p, vec3 a, vec3 b, float r) {
     return length(p-a-(b-a)*clamp(dot(p-a,b-a)/dot(b-a,b-a),0.0,1.0))-r;
 }
 
+float rand(float x) {
+    return mod(tan(pow(abs(2 + x), abs(2 + x))), 1.0);
+}
+float b1(vec2 p, vec2 q) {
+    return pow(
+        mod(p.x + 1, 2.0) - 1.0 + q.x,
+        2.0
+    ) + pow(
+        mod(p.y + 1.0, 2.0) - 1.0 + q.y,
+        2.0
+    ) + 0.04 * sign(
+        max(
+            2.0 * abs(q.x - 0.5) - 0.6,
+            2.0 * abs(q.y - 0.5) - 0.6
+        )
+    );
+}
+float b2(vec2 p, vec2 reg) {
+    return b1(
+        p,
+        2.0 * vec2(
+            rand(sin(reg.x) + cos(reg.y)),
+            rand(cos(reg.x) + sin(reg.y))
+        )
+    );
+}
+float bu(vec2 p) {
+    return b2(p,
+        vec2(
+            floor(0.5 * (p.x + 1)),
+            floor(0.5 * (p.y + 1))
+        )
+    );
+}
+
 vec3 f(vec3 p, bool is_dist) {
-    vec3 o = p;
-    
     float time = u_time;
     
-    float thk = 0.1;
-    float rthk = 0.5 * thk;
-    
-    float l1 = sdf_line(p, vec3(-5.0, -3.0, -20.0), vec3( 5.0, -3.0, -20.0), thk);
-    
-    float l5 = sdf_line(p, vec3(-5.0, -3.0, -20.0), vec3( -5.0, -3.0, -10.0), thk);
-    float l6 = sdf_line(p, vec3( 5.0, -3.0, -20.0), vec3(  5.0, -3.0, -10.0), thk);
-    float l7 = sdf_line(p, vec3(-5.0, 6.0, -20.0), vec3( -5.0, 6.0, -10.0), thk);
-    float l8 = sdf_line(p, vec3( 5.0, 6.0, -20.0), vec3(  5.0, 6.0, -10.0), thk);
-    
-    float l2 = sdf_line(p, vec3(-5.0, -3.0, -20.0), vec3(-5.0,  6.0, -20.0), thk);
-    float l3 = sdf_line(p, vec3( 5.0, -3.0, -20.0), vec3( 5.0,  6.0, -20.0), thk);
-    float l4 = sdf_line(p, vec3(-5.0,  6.0, -20.0), vec3( 5.0,  6.0, -20.0), thk);
-    
-    float c1 = min(min(min(l1,l2),min(l7,l8)),min(min(l3,l6),min(l4,l5)));
-    float c2 = max(
-        sdf_rect(p + vec3(0.0, -1.5, 15.0), vec3(5.0, 4.5, 10.0)),
-        -sdf_rect(p + vec3(0.0, -1.5, 15.0 - rthk), vec3(5.0, 4.5, 10.0 + rthk) - rthk)
+    p += vec3(
+        2.0 * sin(0.5 * time),
+        8.0 * pow(cos(time), 2.0) - 3.0,
+        0.5 * cos(0.5 * time)
     );
-    
-    vec3 cd = p + vec3(0.0, 1.35, 15.0);
-    float disc = sdf_cylinder(cd, 2.5, 0.05);
-    vec3 ld = p + vec3(0, 2.15, 15.0);
-    float legCount = 6.0;
-    float a = 0.2 + mod(atan(ld.z, ld.x) + PI / legCount, PI / (0.5 * legCount)) - PI / legCount;
-    float d = length(ld.xz);
-    ld.xz = d * vec2(cos(a), sin(a));
-    ld.x -= 2.0;
-    float table_legs = mix(
-        sdf_cylinder(ld, 0.15, 0.85),
-        sdf_sphere(ld + vec3(0.0, 0.45, 0.0), 0.25),
-        0.075
-    );
-    float table = min(disc, table_legs);
-    
-    vec3 od = cd + vec3(0.0, -0.55, 0.0);
-    float orb = sdf_sphere(od, 0.55);
-    
-    vec3 td = rot_XZ(cd, -PI / 2.0) + vec3(3.95, 0.35, -2.0);
-    td /= 1.5;
-    float handrest = sdf_cylinder(rot_YZ(td, PI / 2) + vec3(-0.5, 0.0, -0.6), 0.7, 1.7);
-    float cbase = max(
-        sdf_rect(td + vec3(0.0, 0.25, 0.0), vec3(0.53, 0.72, 1.5)),
-        -sdf_rect(
-            td + vec3(-0.2, -0.3, 0.0),
-            1.085 * vec3(0.53, 0.6, 1.2)
-        )
-    );
-    float couch = mix(
-        max(cbase, -handrest),
-        sdf_sphere(td, 2.0),
-        0.02
-    ); 
-    float window = sdf_rect(
-        p + vec3(-5.0, -1.5, 15.0),
-        3.0 * vec3(0.1, 1.0, 1.0)
-    );
-    float windowLines = min(
-        sdf_rect(
-            p + vec3(-4.98, -1.5, 15.0),
-            3.0 * vec3(0.01, 0.05, 1.2)
+    p = rot_XY(
+        rot_XZ_YZ(p,
+            0.7 * (sin(time) - 0.2),
+            3.0 * time
         ),
-        sdf_rect(
-            p + vec3(-4.98, -1.5, 15.0),
-            3.0 * vec3(0.01, 1.2, 0.05)
-        )
+        0.3 * sin(2.0 * time)
     );
     
-    float c = min(max(
-        min(min(c1, c2), min(min(table, couch), orb)),
-        -window
-    ),windowLines);
+    vec3 cl = p;
+    cl.xz *= 1.0 / (1.0 + 0.2 * p.y);
+    float b = sdf_cylinder(cl, 1.0, 2.0);
+    float r = sdf_rect(
+        p + vec3(0.0, 0.5, 0.0),
+        vec3(1.0, 0.2, 1.0)
+    );
+    
+    vec3 pt = p + vec3(0.0, 0.3, 0.0);
+    vec3 ptrans = vec3(1.0, 0.4, 1.0);
+    pt /= ptrans;
+    float topang = atan(p.z, p.x);
+    float adjQ = 0.05 * cos(10.0 * atan(2.0 * p.z, p.x));
+    float pie = max(
+        sdf_sphere(
+            pt, 0.98
+        ) * vmin(ptrans),
+        -pt.y - (0.3 + adjQ)
+    ) * 0.25;
+    
+    float c = min(
+        max(b, r),
+        pie
+    );
     
     if(is_dist) {
         return vec3(c);
     }else{
         float I = 2.0 * MIN_DIST_THRESHOLD;
-        
-        if(c1 <= I)
-            return vec3(0.0, 0.0, 0.2);
-        if(disc <= I)
-            return vec3(0.05, 0.3, 0.12 + 1.075 - pow(min(1.0, 3.4 - length(cd.xz)), 2.0));
-        if(table_legs <= I)
-            return vec3(0.05, 0.3, 0.15 + 0.05 * sin(cd.y));
-        if(orb <= I)
-            return vec3(sin(
-                time + sum(od.xy * 2.0)*sin(2.0 * time) + (1.0 * od.z)*cos(3.0 * time)
-            ) * 0.1, 0.6, 1.0 - length(p) * 0.01);
-        if(couch <= I)
-            return vec3(0.2, 0.35, 0.005*sin(100.0*sum(0.1*td+length(td.z+3.0*(td.xz)))) + 0.5 - clamp(0.5 * length((td - vec3(0.1,0.1,0.0)).xy), 0.02, 0.3));
-        if(max(windowLines, window) <= I || (window - 0.2) <= I)
-            return vec3(0.05, 0.4, 0.1 + 0.005 * sin(55.0 * (0.5 * p.y + p.z)));
-        
-        return vec3(0.0, 0.0, 0.25 + 0.0025 * sin(120.0 * (p.y - 0.1 * sum(p.xz))));
+        if(pie <= I) {
+            float q = 0.05 * pow(abs(cos(5.0 * topang)), 10.0) * (0.5 - 2.0 * p.y);
+            return vec3(
+                0.1,
+                0.3 + q,
+                mix(
+                    0.4 - q + 0.15 * (
+                        5.0 * (
+                            p.y + 0.25
+                        ) - adjQ
+                    ) - (
+                        max(
+                            0.0,
+                            0.08 * (
+                                pow(
+                                    abs(
+                                        cos(5.0 * topang)
+                                    ),
+                                    100.0
+                                )
+                            )
+                        )
+                    ),
+                    0.6,
+                    clamp(
+                        10.0 * (p.y + 0.03),
+                        0.0,
+                        1.0
+                    )
+                )
+            );
+        }
+        if(r <= I)
+            return vec3(0.0, 0.0, 0.5 + (cos(20*topang) <= -0.85 ? 0.1 : 0));
+        return vec3(0.5);
     }
 }
 
@@ -188,7 +204,7 @@ vec3 raymarch(vec3 ray, vec3 ray_step, int max_itter, vec2 thres) {
         float dis = f(ray, true).x;
         ray += dis * ray_step;
         if(dis < thres.x) {
-            return ray;
+            return vec3(ray);
         }else if(dis > thres.y) {
             return vec3(-1.0);
         }
@@ -197,9 +213,17 @@ vec3 raymarch(vec3 ray, vec3 ray_step, int max_itter, vec2 thres) {
 }
 
 void main() {
-    vec3 p = vec3(100.0 * (vertTexCoord.xy - 0.5) * (u_resolution / u_resolution.x), -60.0);
+    vec2 normPoint = vec2((vertTexCoord.xy - 0.5) * (u_resolution / u_resolution.x));
+    vec3 p = vec3(100.0 * normPoint, -60.0);
     
-    vec3 clr = 0.8 * vec3(0.2, 0.8, 1.0);
+    vec3 clr = vec3(0.0);
+    float starLoc = bu(500.0 * (normPoint - vec2(
+        50.0 + 0.001 * cos(0.25 * u_time),
+        40.0 + 0.0008 * sin(0.23 * u_time)
+    )));
+    if(starLoc.x < 0) {
+        clr += 1.0;
+    }
     
     vec3 cast_s = vp_loc;
     vec3 cast_e = vp_loc + rot_XZ_YZ(p, -vp_ang.y, vp_ang.x);
@@ -213,6 +237,15 @@ void main() {
             MAX_DIST_THRESHOLD
         )
     );
+    vec3 ray_close = raymarch(
+        cast_s,
+        ray_step,
+        MAX_ITTERS,
+        vec2(
+            1.0,
+            MAX_DIST_THRESHOLD
+        )
+    );
     
     if(ray != vec3(-1.0)) {
         vec3 dat = f(
@@ -221,28 +254,30 @@ void main() {
         );
         float len = dist(ray, cast_s);
         
-        vec3 lightSource = vec3(150.0, 60.0, 4.0);
+        clr = hsv2rgb(dat) * max(
+            0.35,
+            1.0 - (
+                dist(ray, cast_s) / 20.0
+            )
+        );
+        clr -= 0.002 * pow(dist(ray, ray_close), 2.0);
+        
+        vec3 lightSource = vec3(40.0, 40.0, 20.0);
         vec3 lightLoc = raymarch(
             lightSource,
             normalize(ray - lightSource),
-            MAX_ITTERS - 40,
+            MAX_ITTERS,
             vec2(
                 MIN_DIST_THRESHOLD,
                 512
             )
         );
         
-        clr = hsv2rgb(dat) * max(
-            0.35,
-            1.0 - (
-                dist(ray, cast_s) / 50.0
-            )
-        );
         if(lightLoc != vec3(-1.0)) {
             float d1 = dist(lightLoc, ray);
             float d2 = dist(lightLoc, lightSource);
             clr *= clamp(
-                0.9 * (1 / 1.25) * max(0.0, 1.25 - 0.04 * d1),
+                0.9 * (1 / 1.25) * max(0.0, 1.0 - 0.3 * d1),
                 0.0, 1.0
             );
         }else{
