@@ -1,6 +1,7 @@
 import java.lang.RuntimeException
 
-FPS = 90
+FPS = 60
+timeScale = 0.5
 
 vp_loc = PVector(0, 0, 25)
 vp_ang = PVector(0, 0)
@@ -22,6 +23,7 @@ def hasKey(key):
 def setup():
     global buffer, mouse_pos
     size(1280, 720, P2D)
+    # fullScreen(P2D)
     mouse_pos = PVector(width / 2, height / 2)
     frameRate(FPS)
     buffer = createGraphics(int(width * 1.5), int(height * 1.5), P2D)
@@ -44,7 +46,7 @@ def draw():
             return
 
     shade.set("u_resolution", float(width), float(height))
-    shade.set("u_time", millis() / 1000.0)
+    shade.set("u_time", 0.001 * timeScale * millis())
     
     if canMoveCameraAngle:
         mouse_pos.add(PVector(mouseX - pmouseX, mouseY - pmouseY))
