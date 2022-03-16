@@ -1,7 +1,7 @@
 import java.lang.RuntimeException
 
-FPS = 240
-timeScale = 0.5
+FPS = 500
+timeScale = 1
 
 vp_loc = PVector(0, 0, 25)
 vp_ang = PVector(0, 0)
@@ -22,8 +22,8 @@ def hasKey(key):
 
 def setup():
     global buffer, mouse_pos
-    fullScreen(P2D)
-    size(1280, 720, P2D)
+    # fullScreen(P2D)
+    size(1500, 900, P2D)
     upscale = 1
     
     mouse_pos = PVector(width / 2, height / 2)
@@ -32,7 +32,6 @@ def setup():
 
 def draw():
     global shade, vp_loc, vp_ang, shaderReloadTime
-    background(0)
     
     if millis() >= shaderReloadTime:
         shaderReloadTime = millis() + 1000
@@ -78,19 +77,20 @@ def draw():
         moveVec.add(PVector(-1,  0,  0))
     if hasKey(68):
         moveVec.add(PVector( 1,  0,  0))
-    if hasKey(81):
+    
+    moveVec = rot_XZ(rot_YZ(moveVec, -vp_ang.y), vp_ang.x)
+    
+    if hasKey(32):
         moveVec.add(PVector( 0,  1,  0))
-    if hasKey(69):
+    if hasKey(16):
         moveVec.add(PVector( 0, -1,  0))
     
-    moveVec.setMag( (5.0 if hasKey(16) else 25.0) / frameRate )
-    
-    vp_loc.add(rot_XZ(rot_YZ(moveVec, -vp_ang.y), vp_ang.x))
+    vp_loc.add(moveVec.setMag((25.0 if hasKey(17) else 5.0) / frameRate))
 
 def keyPressed():
     global keys, canMoveCameraAngle
     keys[keyCode] = True
-    if hasKey(32):
+    if hasKey(82):
         canMoveCameraAngle = not canMoveCameraAngle
 
 def keyReleased():

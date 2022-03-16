@@ -3,8 +3,8 @@ precision lowp float;
 #endif
 
 float MIN_DIST_THRESHOLD = 0.001;
-float MAX_DIST_THRESHOLD = 175.0;
-int   MAX_ITTERS         = 333;
+float MAX_DIST_THRESHOLD = 125.0;
+int   MAX_ITTERS         = 256;
 
 varying vec4 vertTexCoord;
 uniform vec2 u_resolution;
@@ -61,9 +61,27 @@ vec2 rotCentered(vec2 p, vec2 a, float r) {
         adj.x*sc.x + adj.y*sc.y
     ) + a;
 }
-vec3 rot_XY(vec3 p,float r){return vec3(p.x*cos(r)-p.y*sin(r),p.x*sin(r)+p.y*cos(r),p.z);}
-vec3 rot_XZ(vec3 p,float r){return vec3(p.x*cos(r)-p.z*sin(r),p.y,p.x*sin(r)+p.z*cos(r));}
-vec3 rot_YZ(vec3 p,float r){return vec3(p.x,p.y*cos(r)-p.z*sin(r),p.y*sin(r)+p.z*cos(r));}
+
+mat2 rotMatrix(vec2 p, float r) {
+    vec2 s = spl(r);
+    return mat2(
+        s.x, -s.y,
+        s.y,  s.x
+    );
+}
+vec3 rot_XY(vec3 p, float r){
+    vec2 m = p.xy * rotMatrix(p.xy, r);
+    return vec3(m, p.z);
+}
+vec3 rot_XZ(vec3 p, float r){
+    vec2 m = p.xz * rotMatrix(p.xz, r);
+    return vec3(m.x, p.y, m.y);
+}
+vec3 rot_YZ(vec3 p, float r){
+    vec2 m = p.yz * rotMatrix(p.yz, r);
+    return vec3(p.x, m);
+}
+
 vec3 rot_XZ_YZ(vec3 p, float r1, float r2) {
     return rot_XZ(rot_YZ(p, r1), r2);
 }
@@ -104,8 +122,6 @@ float sdf_cone(vec3 p, float r) { // TODO the actual math
 vec3 f(vec3 p, bool is_dist) {
     float time = u_time;
 
-    float base = p.y + 2.0;
-    
     float n = 3.0;
     float a = 0.0;
     
@@ -120,7 +136,6 @@ vec3 f(vec3 p, bool is_dist) {
         ), rot.z
     ) + vec3(0.0, -0.64, 0.0);
     
-    
     float pyr = min(
         max(
             sdf_regular_poly(pc, 4, 0.0, true),
@@ -134,9 +149,18 @@ vec3 f(vec3 p, bool is_dist) {
     float cne = sdf_cone(p + vec3(3.0, 1.0, 2.0), 0.5);
     float sph = sdf_sphere(p + vec3(0, 1.0, 0), 1.0);
     float cyl = sdf_cylinder(p + vec3(1.0, 1.0, 4.0), 0.5, 1.0);
-    float cbe = sdf_rect(p + vec3(5, 1.25, -0.5), vec3(0.75));
     
-    float c = min(min(base, cyl), min(min(sph, cbe), min(pyr, cne)));
+    float c1 = sdf_rect(p + vec3(5, 1.25, -0.5), vec3(0.75));
+    float c2 = sdf_rect(p + vec3(5, -0.25, 0.2), vec3(0.75));
+    float c3 = sdf_rect(p + vec3(5, -1.75, 0.5), vec3(0.75));
+    vec3 cat = rot_XY(p + vec3(3.6, -3.04, 0.5), 0.4);
+    float c4 = sdf_rect(cat, vec3(0.75));
+    
+    float cbe = min(c1, min(c2, min(c3, c4)));
+    
+    float base = p.y + 2.0;
+    
+    float c = min(min(cyl, base), min(min(sph, cbe), min(pyr, cne)));
     
     if(is_dist) {
         return vec3(c);
@@ -150,8 +174,16 @@ vec3 f(vec3 p, bool is_dist) {
             return vec3(0.0, 0.5, 0.4);
         if(pyr <= I)
             return vec3(0.3, 0.5, 0.4);
-        if(cbe <= I)
-            return vec3(0.7, 0.5, 0.4);
+        if(cbe <= I) {
+            if(c1 <= I)
+                return vec3(0.0 + 0.05 * p.y , 0.5, 0.5);
+            if(c2 <= I)
+                return vec3(0.1 + 0.05 * p.y , 0.5, 0.5);
+            if(c3 <= I)
+                return vec3(0.2 + 0.05 * p.y , 0.5, 0.5);
+            if(c4 <= I)
+                return vec3(0.3 + 0.05 * p.y , 0.5, 0.5);
+        }
         if(cyl <= I)
             return vec3(0.8, 0.5, 0.4);
         if(c <= I)
@@ -161,12 +193,14 @@ vec3 f(vec3 p, bool is_dist) {
 }
 
 vec3 raymarch(vec3 ray, vec3 ray_step, int max_itter, vec2 thres) {
+    float totalDist = 0.0;
     for(int i = 0; i < max_itter; i++) {
         float dis = f(ray, true).x;
+        totalDist += dis;
         ray += dis * ray_step;
         if(dis < thres.x) {
             return ray;
-        }else if(dis > thres.y) {
+        }else if(totalDist > thres.y) {
             return vec3(-1.0);
         }
     }
@@ -175,6 +209,9 @@ vec3 raymarch(vec3 ray, vec3 ray_step, int max_itter, vec2 thres) {
 
 void main() {
     vec3 p = vec3(80.0 * (vertTexCoord.xy - 0.5) * (u_resolution / u_resolution.x), -60.0);
+    
+    float alpha = 1.0;
+    float missing_alpha = 1.0;
     
     vec3 clr = vec3(0.0);
     
@@ -194,12 +231,12 @@ void main() {
             false
         );
         float len = dist(ray, cast_s);
-        vec3 lightSource = vec3(-120.0, 30.0, -6.0);
+        vec3 lightSource = vec3(15.0, 20.0, -10.0);
         vec3 lightLoc = raymarch(
             lightSource,
             normalize(ray - lightSource),
-            MAX_ITTERS / 2,
-            vec2(MIN_DIST_THRESHOLD, MAX_DIST_THRESHOLD)
+            MAX_ITTERS,
+            vec2(MIN_DIST_THRESHOLD, 1.25 * MAX_DIST_THRESHOLD)
         );
         
         clr = hsv2rgb(dat) * max(0.35, 1.0 - max(0.0, dist(ray, cast_s) / 20.0 - 0.5));
@@ -221,7 +258,8 @@ void main() {
         }
     }else{
         clr *= dist(vec3(50.0, 25.0, 0.0), vec3(cast_s)) * 0.016;
+        alpha = missing_alpha;
     }
     
-    gl_FragColor = vec4(clr, 1.0);
+    gl_FragColor = vec4(clr, alpha);
 }
