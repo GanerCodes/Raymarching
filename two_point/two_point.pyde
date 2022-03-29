@@ -22,7 +22,7 @@ def hasKey(key):
 
 def setup():
     global buffer, mouse_pos
-    fullScreen(P2D)
+    # fullScreen(P2D)
     size(1280, 720, P2D)
     upscale = 1
     

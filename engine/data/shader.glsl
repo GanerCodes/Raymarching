@@ -192,6 +192,16 @@ vec3 f(vec3 p, bool is_dist) {
     }
 }
 
+vec3 norm(vec3 p, float delta) {
+    float base = f(p, true).x;
+    
+    return normalize(vec3(
+        f(p + delta*vec3(1,0,0), true).x - base,
+        f(p + delta*vec3(0,1,0), true).x - base,
+        f(p + delta*vec3(0,0,1), true).x - base
+    ));
+}
+
 vec3 raymarch(vec3 ray, vec3 ray_step, int max_itter, vec2 thres) {
     float totalDist = 0.0;
     for(int i = 0; i < max_itter; i++) {
@@ -232,9 +242,10 @@ void main() {
         );
         float len = dist(ray, cast_s);
         vec3 lightSource = vec3(15.0, 20.0, -10.0);
+        vec3 lightStep = normalize(ray - lightSource);
         vec3 lightLoc = raymarch(
             lightSource,
-            normalize(ray - lightSource),
+            lightStep,
             MAX_ITTERS,
             vec2(MIN_DIST_THRESHOLD, 1.25 * MAX_DIST_THRESHOLD)
         );
@@ -243,16 +254,22 @@ void main() {
             
         float d1 = dist(lightLoc, ray);
         if(lightLoc != vec3(-1.0) && d1 <= 1.0) {
-            clr *= max(
-                0.65,
-                clamp(
-                    0.9 * (1 / 1.25) * max(
-                        0.0,
-                        1.25 - 3.0 * d1
-                    ),
-                    0.0, 1.0
-                )
+            vec3 n = 0.5 * norm(lightLoc, 0.00001);
+            n = mix(n, lightStep, length(cross(lightStep, n)));
+            vec3 newLightLoc = raymarch(
+                lightLoc + 2.0 * n * MIN_DIST_THRESHOLD,
+                n,
+                MAX_ITTERS,
+                vec2(MIN_DIST_THRESHOLD, MAX_DIST_THRESHOLD)
             );
+            
+            float q1 = max(0.65, clamp(0.9 * (1 / 1.25) * max(0.0, 1.25 - 3.0 * d1), 0.0, 1.0));
+            clr *= q1;
+            if(newLightLoc != vec3(-1.0)) {
+                float d2 = dist(newLightLoc, lightLoc);
+                float q2 = max(0.65, clamp(0.9 * (1 / 1.25) * max(0.0, 1.25 - 3.0 * d2), 0.0, 1.0));
+                clr -= 0.05 * q2;
+            }
         }else{
             clr *= 0.65;
         }

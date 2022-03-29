@@ -1,6 +1,6 @@
 import java.lang.RuntimeException
 
-FPS = 500
+FPS = 75
 timeScale = 1
 
 vp_loc = PVector(0, 0, 25)
