@@ -10,6 +10,20 @@ vec3 rgb2hsv(vec3 c){vec4 K=vec4(0.0,-1.0/3.0,2.0/3.0,-1.0),p=mix(vec4(c.bg,K.ab
 vec3 hsv2rgb(vec3 c){vec4 K=vec4(1.0,0.66666,0.33333,3.0);vec3 p=abs(fract(c.rrr+K.rgb)*6.0-K.aaa);return c.b*mix(K.rrr,p-K.rrr,c.g);}
 bool fastDistCompare(vec3 l,float lSquared){return sq(l.x)+sq(l.y)+sq(l.z)>lSquared;}
 
+float modloop(float a, float b) {
+    float t = 0.5 * b;
+    return mod(a + t, b) - t;
+}
+vec2 modloop(vec2 a, float b) {
+    return vec2(modloop(a.x, b), modloop(a.y, b));
+}
+vec3 modloop(vec3 a, float b) {
+    return vec3(modloop(a.x, b), modloop(a.y, b), modloop(a.z, b));
+}
+vec4 modloop(vec4 a, float b) {
+    return vec4(modloop(a.x, b), modloop(a.y, b), modloop(a.z, b), modloop(a.w, b));
+}
+
 float vmin(vec2 p){return min(p.x,p.y);}
 float vmax(vec2 p){return max(p.x,p.y);}
 float vmin(vec3 p){return min(p.x,vmin(p.yz));}

@@ -4,6 +4,9 @@ FPS = 75
 timeScale = 1
 upscale = 0.5
 
+screenshotUpscale = 3
+screenshotRes = (1920, 1080)
+
 vp_loc = PVector(0, 0, 25)
 vp_ang = PVector(0, 0)
 
@@ -36,6 +39,12 @@ def create_main_shader(file_name=tmp_shader_name, shader_list_file="file_list.tx
             with open(shade_name, 'r') as f2:
                 f.write(f2.read() + '\n\n')
 
+def sendPara(shade):
+    shade.set("u_resolution", float(width), float(height))
+    shade.set("u_time", 0.001 * timeScale * millis())
+    shade.set("vp_ang", vp_ang.x, vp_ang.y)
+    shade.set("vp_loc", vp_loc.x, vp_loc.y, vp_loc.z)
+
 def setup():
     global buffer, upscale, mouse_pos
     # fullScreen(P2D)
@@ -58,16 +67,15 @@ def draw():
             if len(shade_temp.fragmentShaderSource) <= 12:
                 raise java.lang.RuntimeException("Shader too short to compile.")
             shade = loadShader(tmp_shader_name)
+            shade.set("u_resolution", float(width), float(height))
         except java.lang.RuntimeException as err:
             print("Error compiling shader! {}".format(err))
             return
-    
-    try:
-        shade.set("u_resolution", float(width), float(height))
-    except:
-        return
         
-    shade.set("u_time", 0.001 * timeScale * millis())
+        print("Sucessfully compiled shader!")
+    
+    if not shade:
+        return
     
     if canMoveCameraAngle:
         mouse_pos.add(PVector(mouseX - pmouseX, mouseY - pmouseY))
@@ -79,8 +87,7 @@ def draw():
             map(mouse_pos.y, 0, height, -PI / 2.0, PI / 2.0)
         )
     
-    shade.set("vp_ang", vp_ang.x, vp_ang.y)
-    shade.set("vp_loc", vp_loc.x, vp_loc.y, vp_loc.z)
+    sendPara(shade)
     
     buffer.filter(shade)
     
@@ -106,7 +113,7 @@ def draw():
         moveVec.add(PVector( 0, -1,  0))
     
     vp_loc.add(moveVec.setMag((25.0 if hasKey(17) else 5.0) / frameRate))
-
+    
 def keyPressed():
     global keys, canMoveCameraAngle
     keys[keyCode] = True
@@ -115,6 +122,24 @@ def keyPressed():
 
 def keyReleased():
     global keys
+    if hasKey(80):
+        newBuf = createGraphics(
+            screenshotUpscale * screenshotRes[0],
+            screenshotUpscale * screenshotRes[0],
+            P2D
+        )
+        newBuf.beginDraw()
+        newBuf.endDraw()
+        sendPara(shade)
+        newBuf.filter(shade)
+        
+        finalBuf = createGraphics(screenshotRes[0], screenshotRes[1], P2D)
+        finalBuf.beginDraw()
+        finalBuf.image(newBuf, 0, 0, screenshotRes[0], screenshotRes[1])
+        finalBuf.endDraw()
+        finalBuf.save("screenshot.png")
+        print("Saved screenshot!")
+        
     keys[keyCode] = False
 
 def mouseClicked():

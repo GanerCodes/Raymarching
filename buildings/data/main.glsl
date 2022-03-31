@@ -24,10 +24,31 @@ void main() {
     );
     
     if(ray != vec3(-1.0)) {
-        vec3 dat = f(
+        vec4 dat = f(
             ray + MIN_DIST_THRESHOLD * ray_step,
             false
         );
+        
+        int i = 0;
+        while(dat.w > 0.01 && i < 5) {
+            i++;
+            vec3 n = norm(ray, 0.00001);
+            n = reflect_norm(ray_step, n);
+            ray = raymarch(
+                ray.xyz + 2.0 * MIN_DIST_THRESHOLD * n,
+                n,
+                MAX_ITTERS,
+                vec2(MIN_DIST_THRESHOLD, MAX_DIST_THRESHOLD)
+            );
+            if(ray != vec3(-1.0)) {
+                vec4 new = f(ray + MIN_DIST_THRESHOLD * ray_step, false);
+                dat = vec4(mix(dat.xyz, new.xyz, dat.w), new.w);
+                ray_step = normalize(n);
+            }else{
+                break;
+            }
+        }
+        
         float len = dist(ray, cast_s);
         vec3 lightSource = vec3(15.0, 20.0, -10.0);
         vec3 lightStep = normalize(ray - lightSource);
@@ -38,7 +59,7 @@ void main() {
             vec2(MIN_DIST_THRESHOLD, 1.25 * MAX_DIST_THRESHOLD)
         );
         
-        clr = hsv2rgb(dat) * max(0.35, 1.0 - max(0.0, dist(ray, cast_s) / 20.0 - 0.5));
+        clr = hsv2rgb(dat.xyz) * max(0.35, 1.0 - max(0.0, dist(ray, cast_s) / 20.0 - 0.5));
             
         float d1 = dist(lightLoc, ray);
         if(lightLoc != vec3(-1.0) && d1 <= 1.0) {

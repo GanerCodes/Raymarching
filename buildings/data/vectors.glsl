@@ -1,6 +1,8 @@
-float angle(vec2 p) {
-    return atan(p.y,p.x);
-}
+float angle(vec2 p) { return atan(p.y,p.x); }
+vec2 reflect_norm(vec2 p, vec2 n) { return p - 2.0 * n * dot(p, n); }
+vec3 reflect_norm(vec3 p, vec3 n) { return p - 2.0 * n * dot(p, n); }
+vec4 reflect_norm(vec4 p, vec4 n) { return p - 2.0 * n * dot(p, n); }
+
 vec2 rotCentered(vec2 p, vec2 a, float r) {
     vec2 adj = p - a;
     vec2 sc = vec2(sin(r), cos(r));
