@@ -47,6 +47,9 @@ float smoothMax(float a, float b, float d) {
     vec2 e = vec2(min(a, b), max(a, b));
     return mix(e.y, e.x, smoothstep(-d, d, e.x - e.y));
 }
+float smoothFloor(float a, float b) {
+    return floor(a) + pow(mod(a, 1.0), b);
+}
 float stickyMix(float a, float b, float x, float q) {
     return mix(a, b, clamp(x + q / abs(b - a), 0.0, 1.0));
 }

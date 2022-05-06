@@ -10,5 +10,5 @@ uniform vec3 vp_loc;
 uniform vec2 vp_ang;
 
 float MIN_DIST_THRESHOLD = 0.001;
-float MAX_DIST_THRESHOLD = 1250.0;
+float MAX_DIST_THRESHOLD = 1000.0;
 int   MAX_ITTERS         = 356;

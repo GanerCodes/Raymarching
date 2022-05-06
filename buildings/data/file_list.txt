@@ -3,6 +3,7 @@ helpers.glsl
 vectors.glsl
 random.glsl
 SDFs.glsl
+stars.glsl
 func.glsl
 marching.glsl
 main.glsl

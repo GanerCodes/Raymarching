@@ -1,0 +1,33 @@
+Rotate along 3 axis
+Inital rotation:
+    1. Rotate a_x degrees around X axis
+    2. Rotate a_y degrees around Y axis
+    3. Rotate a_z degrees around Z axis
+
+Rotational change: <P, Y, R> (pitch, yaw, roll) ["Facing" direction is +z]
+a_x = apply inital rotations to (1, 0, 0)
+a_y = apply inital rotations to (0, 1, 0)
+a_z = apply inital rotations to (0, 0, 1)
+Rotate P by P degrees on axis a_x
+Rotate P by Y degrees on axis a_y
+Rotate P by R degrees on axis a_z
+
+
+
+How to rotate point P by ζ degrees around line θ, φ
+
+0. Consider line:
+    a. Init line as X axis
+    b. Rotate XY by θ
+    c. Rotate XZ by φ
+
+1. Align point P:
+    a. Rotate P along XZ by -φ
+    b. Rotate P along XY by -θ
+
+2. Rotate P along line axis:
+    a. Rotate P along YZ by ζ
+
+3. Reverse alignment transformation:
+    a. Rotate P along XY by θ
+    b. Rotate P along XZ by φ

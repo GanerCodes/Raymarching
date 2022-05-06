@@ -1,5 +1,5 @@
 void main() {
-    float FOV = 120;
+    float FOV = 130;
     float cam_dist = 100.0;
     
     float hFOV = FOV / 2.0 * tan(PI * FOV / 360.0) * 2.0;
@@ -11,8 +11,6 @@ void main() {
     float alpha = 1.0;
     float missing_alpha = 1.0;
     
-    vec3 clr = vec3(0.0);
-    
     vec3 cast_s = vp_loc;
     vec3 cast_e = vp_loc + rot_XZ_YZ(p_e, -vp_ang.y, vp_ang.x);
     vec3 ray_step = normalize(cast_e - cast_s);
@@ -23,12 +21,23 @@ void main() {
         vec2(MIN_DIST_THRESHOLD, MAX_DIST_THRESHOLD)
     );
     
+    vec3 clr = vec3(0.0);
+    // if(stars_bu(500.0 * (vertTexCoord.xy - vec2(
+    //     50.0 + 0.001 * cos(0.25 * u_time),
+    //     40.0 + 0.0008 * sin(0.23 * u_time)
+    // ))).x < 0) {
+    //     clr += 1.0;
+    // }
+    
     if(ray != vec3(-1.0)) {
+        vec3 lightRay = ray;
+        
         vec4 dat = f(
             ray + MIN_DIST_THRESHOLD * ray_step,
             false
         );
         
+        float car = dat.w;
         int i = 0;
         while(dat.w > 0.01 && i < 5) {
             i++;
@@ -42,16 +51,28 @@ void main() {
             );
             if(ray != vec3(-1.0)) {
                 vec4 new = f(ray + MIN_DIST_THRESHOLD * ray_step, false);
-                dat = vec4(mix(dat.xyz, new.xyz, dat.w), new.w);
+                
+                // this is not optimal
+                car *= new.w;
+                dat = vec4(
+                    rgb2hsv(
+                        mix(
+                            hsv2rgb(dat.xyz),
+                            hsv2rgb(new.xyz),
+                            dat.w
+                        )
+                    ),
+                    car
+                );
                 ray_step = normalize(n);
             }else{
                 break;
             }
         }
         
-        float len = dist(ray, cast_s);
+        float len = dist(lightRay, cast_s);
         vec3 lightSource = vec3(15.0, 20.0, -10.0);
-        vec3 lightStep = normalize(ray - lightSource);
+        vec3 lightStep = normalize(lightRay - lightSource);
         vec3 lightLoc = raymarch(
             lightSource,
             lightStep,
@@ -59,9 +80,9 @@ void main() {
             vec2(MIN_DIST_THRESHOLD, 1.25 * MAX_DIST_THRESHOLD)
         );
         
-        clr = hsv2rgb(dat.xyz) * max(0.35, 1.0 - max(0.0, dist(ray, cast_s) / 20.0 - 0.5));
+        clr = hsv2rgb(dat.xyz) * max(0.35, 1.0 - max(0.0, dist(lightRay, cast_s) / 20.0 - 0.5));
             
-        float d1 = dist(lightLoc, ray);
+        float d1 = dist(lightLoc, lightRay);
         if(lightLoc != vec3(-1.0) && d1 <= 1.0) {
             clr *= max(0.65, clamp(0.9 * (1 / 1.25) * max(0.0, 1.25 - 3.0 * d1), 0.0, 1.0));
         }else{

@@ -16,7 +16,7 @@ uniform vec3 vp_loc;
 uniform vec2 vp_ang;
 
 float MIN_DIST_THRESHOLD = 0.001;
-float MAX_DIST_THRESHOLD = 1250.0;
+float MAX_DIST_THRESHOLD = 1000.0;
 int   MAX_ITTERS         = 356;
 
 ////////// ./data/helpers.glsl //////////
@@ -69,6 +69,9 @@ float smoothMin(float a, float b, float d) {
 float smoothMax(float a, float b, float d) {
     vec2 e = vec2(min(a, b), max(a, b));
     return mix(e.y, e.x, smoothstep(-d, d, e.x - e.y));
+}
+float smoothFloor(float a, float b) {
+    return floor(a) + pow(mod(a, 1.0), b);
 }
 float stickyMix(float a, float b, float x, float q) {
     return mix(a, b, clamp(x + q / abs(b - a), 0.0, 1.0));
@@ -180,13 +183,55 @@ float sdf_cone(vec3 p, float r) { // TODO the actual math
     return 0.5 * sdf_cylinder(p, 0.3 - 0.3 * p.y, 1.0);
 }
 
+////////// ./data/stars.glsl //////////
+
+float stars_b1(vec2 p, vec2 q) {
+    return pow(
+        mod(p.x + 1, 2.0) - 1.0 + q.x,
+        2.0
+    ) + pow(
+        mod(p.y + 1.0, 2.0) - 1.0 + q.y,
+        2.0
+    ) + 0.04 * sign(
+        max(
+            2.0 * abs(q.x - 0.5) - 0.6,
+            2.0 * abs(q.y - 0.5) - 0.6
+        )
+    );
+}
+float stars_b2(vec2 p, vec2 reg) {
+    return stars_b1(
+        p,
+        2.0 * vec2(
+            rand(sin(reg.x) + cos(reg.y)),
+            rand(cos(reg.x) + sin(reg.y))
+        )
+    );
+}
+float stars_bu(vec2 p) {
+    return stars_b2(p,
+        vec2(
+            floor(0.5 * (p.x + 1)),
+            floor(0.5 * (p.y + 1))
+        )
+    );
+}
+
 ////////// ./data/func.glsl //////////
 
 vec4 f(vec3 p, bool is_dist) {
     float time = u_time;
 
-    float base = p.y;
     
+    vec3 skyloc = p - vp_loc;
+    float sdm = 0.2 * MAX_DIST_THRESHOLD;
+    float sky = max(
+        -sdf_sphere(skyloc, sdm),
+        sdf_sphere(skyloc, sdm + 5)
+    );
+    float skylm = 1.0 / sdm;
+    
+    float base = p.y;
     float v = 2.5;
     vec2 l_ = modloop(p.xz, v);
     vec2 n = floor((p.xz + 0.5 * v) / v);
@@ -222,13 +267,43 @@ vec4 f(vec3 p, bool is_dist) {
         )
     );
     
+    float buildCap = 1.0;
+    if(buildType == 1.0) {
+        int n = 6;
+        float q = 1.0 * (1.0 / n) * smoothFloor(n * (1.0 - 0.4 * (l.y - 1.5 * buildingHeight)), 20.0);
+        buildCap = min(
+            sdf_rect(
+                l - vec3(0.0, 1.5 * buildingHeight + 2.0, 0.0),
+                vec3(q * buildingWidth, 2.0, q * buildingWidth)
+            ),
+            min(
+                sdf_line(
+                    l,
+                    vec3(0.0, 1.5 * buildingHeight, 0.0),
+                    vec3(0.0, 3.0 + 1.5 * buildingHeight, 0.0),
+                    0.02
+                ),
+                sdf_sphere(
+                    l - vec3(0.0, 3.0 + 1.5 * buildingHeight, 0.0),
+                    0.04
+                )
+            )
+        ) * 0.4;
+    }
+    
     float c = min(
-        base,
-        buildings
+        min(
+            base,
+            sky
+        ),
+        min(
+            buildings,
+            buildCap
+        )
     );
     
     if(is_dist) {
-        return vec4(c);
+        return 0.75 * vec4(c);
     }
     
     float I = 2.0 * MIN_DIST_THRESHOLD;
@@ -240,15 +315,27 @@ vec4 f(vec3 p, bool is_dist) {
             }
             return vec4(0.0, 0.0, 0.1 + 0.1 * rand(l.xz), 0.0);
         }
-        return vec4(0.02, 0.02, (cos(5.0 * p.x) * sin(5.0 * p.z)) <= 0 ? 0.3 : 0.35, 0.0);
+        if(r >= 0.8) {
+            return vec4(0.0);
+        }
+        return vec4(0.5, 0.1, 0.5, 0.5);
+        // return vec4(0.02, 0.02, (cos(5.0 * p.x) * sin(5.0 * p.z)) <= 0 ? 0.3 : 0.35, 0.0);
     }
-    if(windows - 0.12 <= I) {
+    if(sky <= I) {
+        return vec4(0.2 * sum(sin(skylm * p)), 0.6, 1.0, 0.0);
+    }
+    if(windows - 0.15 <= I && l.y <= 1.5 * buildingHeight) {
         if(windows <= I)
-            return vec4(0.5, 0.1, 0.2, 0.33);
+            return vec4(0.5, 0.0, 0.0, 0.4);
         return vec4(0.0);
     }
-    if(buildings <= I)
-        return vec4(0.5 * buildType, 0.5, 0.5, 0.0);
+    if(buildCap <= I) {
+        return vec4(0.0, 0.0, 0.05, 0.1);
+    }
+    if(buildings <= I) {
+        // return vec4(0.5 * buildType, 0.5, 0.5, 0.0);
+        return vec4(0.0, 0.0, 0.2 - (0.05) * cos(l.x * l.y * l.z), 0.05);
+    }
 }
 
 ////////// ./data/marching.glsl //////////
@@ -283,7 +370,7 @@ vec3 raymarch(vec3 ray, vec3 ray_step, int max_itter, vec2 thres) {
 ////////// ./data/main.glsl //////////
 
 void main() {
-    float FOV = 120;
+    float FOV = 130;
     float cam_dist = 100.0;
     
     float hFOV = FOV / 2.0 * tan(PI * FOV / 360.0) * 2.0;
@@ -295,8 +382,6 @@ void main() {
     float alpha = 1.0;
     float missing_alpha = 1.0;
     
-    vec3 clr = vec3(0.0);
-    
     vec3 cast_s = vp_loc;
     vec3 cast_e = vp_loc + rot_XZ_YZ(p_e, -vp_ang.y, vp_ang.x);
     vec3 ray_step = normalize(cast_e - cast_s);
@@ -307,12 +392,23 @@ void main() {
         vec2(MIN_DIST_THRESHOLD, MAX_DIST_THRESHOLD)
     );
     
+    vec3 clr = vec3(0.0);
+    // if(stars_bu(500.0 * (vertTexCoord.xy - vec2(
+    //     50.0 + 0.001 * cos(0.25 * u_time),
+    //     40.0 + 0.0008 * sin(0.23 * u_time)
+    // ))).x < 0) {
+    //     clr += 1.0;
+    // }
+    
     if(ray != vec3(-1.0)) {
+        vec3 lightRay = ray;
+        
         vec4 dat = f(
             ray + MIN_DIST_THRESHOLD * ray_step,
             false
         );
         
+        float car = dat.w;
         int i = 0;
         while(dat.w > 0.01 && i < 5) {
             i++;
@@ -326,16 +422,28 @@ void main() {
             );
             if(ray != vec3(-1.0)) {
                 vec4 new = f(ray + MIN_DIST_THRESHOLD * ray_step, false);
-                dat = vec4(mix(dat.xyz, new.xyz, dat.w), new.w);
+                
+                // this is not optimal
+                car *= new.w;
+                dat = vec4(
+                    rgb2hsv(
+                        mix(
+                            hsv2rgb(dat.xyz),
+                            hsv2rgb(new.xyz),
+                            dat.w
+                        )
+                    ),
+                    car
+                );
                 ray_step = normalize(n);
             }else{
                 break;
             }
         }
         
-        float len = dist(ray, cast_s);
+        float len = dist(lightRay, cast_s);
         vec3 lightSource = vec3(15.0, 20.0, -10.0);
-        vec3 lightStep = normalize(ray - lightSource);
+        vec3 lightStep = normalize(lightRay - lightSource);
         vec3 lightLoc = raymarch(
             lightSource,
             lightStep,
@@ -343,9 +451,9 @@ void main() {
             vec2(MIN_DIST_THRESHOLD, 1.25 * MAX_DIST_THRESHOLD)
         );
         
-        clr = hsv2rgb(dat.xyz) * max(0.35, 1.0 - max(0.0, dist(ray, cast_s) / 20.0 - 0.5));
+        clr = hsv2rgb(dat.xyz) * max(0.35, 1.0 - max(0.0, dist(lightRay, cast_s) / 20.0 - 0.5));
             
-        float d1 = dist(lightLoc, ray);
+        float d1 = dist(lightLoc, lightRay);
         if(lightLoc != vec3(-1.0) && d1 <= 1.0) {
             clr *= max(0.65, clamp(0.9 * (1 / 1.25) * max(0.0, 1.25 - 3.0 * d1), 0.0, 1.0));
         }else{

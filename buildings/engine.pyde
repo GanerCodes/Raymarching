@@ -2,10 +2,10 @@ import java.lang.RuntimeException
 
 FPS = 75
 timeScale = 1
-upscale = 0.5
+upscale = 1
 
 screenshotUpscale = 3
-screenshotRes = (1920, 1080)
+screenshotRes = (3840, 2160)
 
 vp_loc = PVector(0, 0, 25)
 vp_ang = PVector(0, 0)
@@ -136,9 +136,9 @@ def keyReleased():
         finalBuf = createGraphics(screenshotRes[0], screenshotRes[1], P2D)
         finalBuf.beginDraw()
         finalBuf.image(newBuf, 0, 0, screenshotRes[0], screenshotRes[1])
-        finalBuf.endDraw()
         finalBuf.save("screenshot.png")
-        print("Saved screenshot!")
+        finalBuf.endDraw()
+        print("Screenshot saved!")
         
     keys[keyCode] = False
 
