@@ -1,9 +1,10 @@
 import java.lang.RuntimeException
 import time, os
 from vectors import *
+from keys import *
 
 FPS = 75
-upscale = 0.5
+upscale = 0.4
 timeScale = 1
 screenshotUpscale = 2.5
 screenshotRes = (3840, 2160)
@@ -14,23 +15,9 @@ mode = "camera"
 if not os.path.isdir("gen"):
     os.mkdir("gen")
 
-class Key: pass
-for i in range(65, 91):
-    setattr(Key,     chr(i), i)
-for i in range(48, 58):
-    setattr(Key, '_'+chr(i), i)
-Key.SPACE = 32
-Key.SHIFT = 16
-Key.CTRL  = 17
-Key.LEFT  = 37
-Key.UP    = 38
-Key.RIGHT = 39
-Key.DOWN  = 40
-
 shaderReloadTime = 0
 canMoveCameraAngle = True
 shade = None
-keys = {}
 
 tmp_shader_name = str(sketchPath("gen/SHADER_COMPILED.glsl"))
 
@@ -38,10 +25,6 @@ def rot_XZ(p, r):
     return v3(p.x*cos(r)-p.z*sin(r), p.y, p.x*sin(r)+p.z*cos(r))
 def rot_YZ(p, r):
     return v3(p.x, p.y*cos(r)-p.z*sin(r), p.y*sin(r)+p.z*cos(r))
-
-def hasKey(key):
-    global keys
-    return key in keys and keys[key]
 
 def create_main_shader(file_name=tmp_shader_name, shader_list_file="file_list.txt"):
     with open(shader_list_file) as f:
@@ -66,7 +49,7 @@ def sendPara(shade):
 def setup():
     global buffer, upscale, mouse_pos
     # fullScreen(P2D)
-    size(1280, 720, P2D)
+    size(1664, 936, P2D)
     
     mouse_pos = v2(width / 2, height / 2)
     frameRate(FPS)
@@ -90,7 +73,7 @@ def draw():
             print("Error compiling shader! {}".format(err))
             return
         
-        print("Sucessfully compiled shader!")
+        # print("Sucessfully compiled shader!")
     
     if not shade:
         return
@@ -139,22 +122,35 @@ def draw():
     
     player.loc.add(player.loc_vel)
     
-    def rotAxis(p, axis, PYR):
-        j = list(dirToAng(axis))
-        p = rotate3d(p, v3(*(j + [PYR.x])))
-        p = rotate3d(p, v3(*(j + [PYR.y])))
-        p = rotate3d(p, v3(*(j + [PYR.z])))
+    """ def applyRots(p, rots, axies=BASIS):
+        p = rotateAxis(p, axies[0], rots.x)
+        p = rotateAxis(p, axies[1], rots.y)
+        p = rotateAxis(p, axies[2], rots.z)
         return p
     
-    axis_x = rotAxis(v3(1, 0, 0), v3(0, 0, 1), player.ang)
-    axis_y = rotAxis(v3(0, 1, 0), v3(0, 0, 1), player.ang)
-    axis_z = rotAxis(v3(0, 0, 1), v3(0, 0, 1), player.ang)
+    axies = [applyRots(BASIS.x, player.ang),
+             applyRots(BASIS.y, player.ang),
+             applyRots(BASIS.z, player.ang)]
     
-    player.ang = rotate3d(player.ang, v3(*(list(dirToAng(axis_x)) + [player.ang_vel.x])))
-    player.ang = rotate3d(player.ang, v3(*(list(dirToAng(axis_y)) + [player.ang_vel.y])))
-    player.ang = rotate3d(player.ang, v3(*(list(dirToAng(axis_z)) + [player.ang_vel.z])))
+    na = [applyRots(axies[0], player.ang_vel, axies),
+          applyRots(axies[1], player.ang_vel, axies),
+          applyRots(axies[2], player.ang_vel, axies)] """
     
-    player.ang.add(player.ang_vel)
+    player.ang.z += player.ang_vel.z
+    
+    na = v3(0,1,0)
+    na.setYZ(*rot(na.yz, -player.ang.z))
+    na.setXY(*rot(na.xy, -player.ang.y))
+    na.setXZ(*rot(na.xz, -player.ang.x))
+    
+    new_rot = angsToDir(player.ang.xy)
+    new_rot = rotateAxis(new_rot, na, 0.2)
+    # player.ang.setXY(*dirToAng(new_rot))
+    shade.set("test", new_rot)
+    
+    player.ang.x += player.ang_vel.x
+    player.ang.y += player.ang_vel.y
+    
     player.loc_vel.mult(0.75)
     player.ang_vel.mult(0.75)
     

@@ -9,16 +9,25 @@ class Vec(PVector):
         if self.dimensions > 2:
             l += [self.z]
         return iter(l)
+    def __str__(self):
+        return repr(self)
+    def __repr__(self):
+        return '<{}>'.format(', '.join(str(round(i, 5)) for i in self))
     def __getattribute__(self, name):
         if 4 > len(name) > 1 and not len(set(name).difference(set('xyz'))):
             return Vec(*(getattr(self, i) for i in name))
         return PVector.__getattribute__(self, name)
-    def setXY(self, x, y):
-        self.x, self.y = x, y
-    def setXZ(self, x, z):
-        self.x, self.z = x, z
-    def setYZ(self, y, z):
-        self.y, self.z = y, z
+    def copy(self):
+        return Vec(*self)
+    def setXY(self, a, b):
+        self.x, self.y = a, b
+        return self
+    def setXZ(self, a, b):
+        self.x, self.z = a, b
+        return self
+    def setYZ(self, a, b):
+        self.y, self.z = a, b
+        return self
 
 class Obj3d:
     def __init__(self, loc=None, ang=None):
@@ -48,6 +57,10 @@ def v2(x=None, y=None):
     return Vec(x or 0, y)
 
 def v3(x=None, y=None, z=None):
+    if isinstance(x, Vec):
+        (x, y), z = x, y
+    elif isinstance(y, Vec):
+        y, z = y
     if y is None and z is None:
         if x is None:
             return Vec(0, 0, 0)
@@ -57,12 +70,15 @@ def v3(x=None, y=None, z=None):
 def hypot(*q):
     return sqrt(sum(map(lambda x: x ** 2, q)))
 
-def rot(x, y, a):
+def rot(x, y, a=None):
+    if isinstance(x, Vec):
+        (x, y), a = x, y
     d = hypot(x, y)
     a = atan2(y, x) + a
-    return (d * cos(a), d * sin(a))
+    return v2(d * cos(a), d * sin(a))
 
-def rotate3d(p, R):
+def rotate3(p, R):
+    p = p.copy()
     p.setXZ( *rot(p.x, p.z, -R.x) )
     p.setXY( *rot(p.x, p.y, -R.y) )
     p.setYZ( *rot(p.y, p.z,  R.z) )
@@ -70,7 +86,28 @@ def rotate3d(p, R):
     p.setXZ( *rot(p.x, p.z,  R.x) )
     return p
 
+def rotateAxis(p, V, a):
+    return rotate3(p, v3(dirToAng(V), a))
+
 def dirToAng(p):
     return v2(
         atan2(p.z, p.x),
         atan2(p.y, hypot(*p.xz)))
+
+def angsToDir(rots):
+    p = v3(1.0, 0.0, 0.0)
+    p.setXY(*rot(p.x, p.y, rots.y))
+    p.setXZ(*rot(p.x, p.z, rots.x))
+    return p
+
+class _BASIS(object):
+    def __init__(self):
+        self.x = v3(1, 0, 0)
+        self.y = v3(0, 1, 0)
+        self.z = v3(0, 0, 1)
+    def __iter__(self):
+        return iter((self.x, self.y, self.z))
+    def __getitem__(self, i):
+        return list(self)[i]
+
+BASIS = _BASIS()
