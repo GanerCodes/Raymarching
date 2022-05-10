@@ -9,7 +9,7 @@ timeScale = 1
 screenshotUpscale = 2.5
 screenshotRes = (3840, 2160)
 camera = Obj3d(v3(2, 1, 0), v2(0, 0))
-player = Player3d(v3(0, 1, 0), v3(0, 0, 0))
+player = Player3d(v3(0, 1, 0), v3(0.3, 0.5, 0.2))
 mode = "camera"
 
 if not os.path.isdir("gen"):
@@ -20,11 +20,6 @@ canMoveCameraAngle = True
 shade = None
 
 tmp_shader_name = str(sketchPath("gen/SHADER_COMPILED.glsl"))
-
-def rot_XZ(p, r):
-    return v3(p.x*cos(r)-p.z*sin(r), p.y, p.x*sin(r)+p.z*cos(r))
-def rot_YZ(p, r):
-    return v3(p.x, p.y*cos(r)-p.z*sin(r), p.y*sin(r)+p.z*cos(r))
 
 def create_main_shader(file_name=tmp_shader_name, shader_list_file="file_list.txt"):
     with open(shader_list_file) as f:
@@ -51,12 +46,14 @@ def setup():
     # fullScreen(P2D)
     size(1664, 936, P2D)
     
+    textFont(createFont("Monospaced", 12))
+    
     mouse_pos = v2(width / 2, height / 2)
     frameRate(FPS)
     buffer = createGraphics(int(width * upscale), int(height * upscale), P2D)
 
 def draw():
-    global shade, vp_loc, vp_ang, shaderReloadTime
+    global shade, vp_loc, vp_ang, shaderReloadTime, bruh
     
     if millis() >= shaderReloadTime:
         shaderReloadTime = millis() + 1000
@@ -120,36 +117,19 @@ def draw():
         if hasKey(Key.S):
             player.loc_vel.add(rot_XZ(rot_YZ(v3(0, 0, -0.01), -player.ang.y), player.ang.x))
     
-    player.loc.add(player.loc_vel)
+    def do(inp):
+        inp = inp.copy()
+        inp = rot_XZ(inp, player.ang.x)
+        inp = rot_XY(inp, player.ang.y)
+        inp = rot_YZ(inp, player.ang.z)
+        return inp
     
-    """ def applyRots(p, rots, axies=BASIS):
-        p = rotateAxis(p, axies[0], rots.x)
-        p = rotateAxis(p, axies[1], rots.y)
-        p = rotateAxis(p, axies[2], rots.z)
-        return p
+    # player.ang += player.ang_vel
+    player.ang.x = map(mouseX, 0, width , -PI, PI)
+    player.ang.y = map(mouseY, 0, height, -PI, PI)
     
-    axies = [applyRots(BASIS.x, player.ang),
-             applyRots(BASIS.y, player.ang),
-             applyRots(BASIS.z, player.ang)]
-    
-    na = [applyRots(axies[0], player.ang_vel, axies),
-          applyRots(axies[1], player.ang_vel, axies),
-          applyRots(axies[2], player.ang_vel, axies)] """
-    
-    player.ang.z += player.ang_vel.z
-    
-    na = v3(0,1,0)
-    na.setYZ(*rot(na.yz, -player.ang.z))
-    na.setXY(*rot(na.xy, -player.ang.y))
-    na.setXZ(*rot(na.xz, -player.ang.x))
-    
-    new_rot = angsToDir(player.ang.xy)
-    new_rot = rotateAxis(new_rot, na, 0.2)
-    # player.ang.setXY(*dirToAng(new_rot))
-    shade.set("test", new_rot)
-    
-    player.ang.x += player.ang_vel.x
-    player.ang.y += player.ang_vel.y
+    a, b, c = do(BASIS.x), do(BASIS.y), do(BASIS.z)
+    player.ang = find_euler(a, b, c)
     
     player.loc_vel.mult(0.75)
     player.ang_vel.mult(0.75)
@@ -170,8 +150,9 @@ def keyPressed():
     elif hasKey(Key.Q):
         mode = ("camera", "player")[mode == "camera"]
 
+bruh = 0
 def keyReleased():
-    global keys, vp_loc
+    global keys, vp_loc, bruh
     if hasKey(Key.P):
         newBuf = createGraphics(
             int(screenshotUpscale * screenshotRes[0]),
@@ -189,6 +170,8 @@ def keyReleased():
         finalBuf.save("gen/screenshot_{}.png".format(int(1000 * time.time())))
         finalBuf.endDraw()
         print("Screenshot saved!")
+    if hasKey(Key.K):
+        bruh = QUARTER_PI
     keys[keyCode] = False
 
 def mouseClicked():

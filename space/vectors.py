@@ -1,7 +1,12 @@
 class Vec(PVector):
     def __init__(self, *args):
-        self.dimensions = len(args)
-        PVector.__init__(self, *args)
+        a = []
+        for i in args:
+            if i is None: continue
+            if isinstance(i, Vec): a += list(i)
+            else: a += [i]
+        self.dimensions = len(a)
+        PVector.__init__(self, *a)
     def __str__(self):
         return "<{}>".format(', '.join(map(lambda x: str(round(x, 4)), self)))
     def __iter__(self):
@@ -12,21 +17,42 @@ class Vec(PVector):
     def __str__(self):
         return repr(self)
     def __repr__(self):
-        return '<{}>'.format(', '.join(str(round(i, 5)) for i in self))
+        return '<{}>'.format(', '.join("{: 010.4f}".format(i) for i in self))
     def __getattribute__(self, name):
         if 4 > len(name) > 1 and not len(set(name).difference(set('xyz'))):
             return Vec(*(getattr(self, i) for i in name))
         return PVector.__getattribute__(self, name)
+    def __add__(self, other):
+        q = list(self)
+        for i, v in enumerate(other):
+            q[i] += v
+        return Vec(*q)
+    def __sub__(self, other):
+        return self + (-other)
+    def __mul__(self, other):
+        if isinstance(other, Vec):
+            return Vec(*(i * o for i, o in zip(self, other)))
+        else:
+            return Vec(*(i * other for i in self))
+    def __neg__(self):
+        return Vec(*(-i for i in self))
     def copy(self):
         return Vec(*self)
-    def setXY(self, a, b):
+    def setXY(self, a, b=None):
+        a, b = Vec(a, b)
         self.x, self.y = a, b
         return self
-    def setXZ(self, a, b):
+    def setXZ(self, a, b=None):
+        a, b = Vec(a, b)
         self.x, self.z = a, b
         return self
-    def setYZ(self, a, b):
+    def setYZ(self, a, b=None):
+        a, b = Vec(a, b)
         self.y, self.z = a, b
+        return self
+    def setXYZ(self, a, b=None, c=None):
+        a, b, c = Vec(a, b, c)
+        self.x, self.y, self.z = a, b, c
         return self
 
 class Obj3d:
@@ -76,6 +102,15 @@ def rot(x, y, a=None):
     d = hypot(x, y)
     a = atan2(y, x) + a
     return v2(d * cos(a), d * sin(a))
+def rot_XY(p, r):
+    k = rot(p.xy, r)
+    return v3(k.x, k.y, p.z)
+def rot_XZ(p, r):
+    k = rot(p.xz, r)
+    return v3(k.x, p.y, k.y)
+def rot_YZ(p, r):
+    k = rot(p.yz, r)
+    return v3(p.x, k.x, k.y)
 
 def rotate3(p, R):
     p = p.copy()
@@ -100,6 +135,14 @@ def angsToDir(rots):
     p.setXZ(*rot(p.x, p.z, rots.x))
     return p
 
+fixmod = lambda x: ((x + PI) % TWO_PI) - PI
+
+def find_euler(p1, p2, p3):
+    a = atan2(p2.z, p3.z)
+    b = atan2(p1.z, hypot(p2.z, p3.z))
+    c = atan2(p1.y, p1.x)
+    return v3(a, b, c)
+
 class _BASIS(object):
     def __init__(self):
         self.x = v3(1, 0, 0)
@@ -111,3 +154,15 @@ class _BASIS(object):
         return list(self)[i]
 
 BASIS = _BASIS()
+
+def app(p1, q):
+    p1 = rot_YZ(p1, q.x)
+    p1 = rot_XZ(p1, q.y)
+    p1 = rot_XY(p1, q.z)
+    return p1
+    
+# for x in [-1, 1]:
+#     for y in [-1, 1]:
+#         for z in [-1, 1]:
+#             w = v3(HALF_PI * 0.95, HALF_PI * 0.95, HALF_PI * 0.95) * v3(x, y, z)
+#             print("{} : {}".format(w, find_euler(*(app(i, w) for i in BASIS))))

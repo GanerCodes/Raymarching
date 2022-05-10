@@ -1,6 +1,19 @@
-(1, 0, 0) 🠒 <x y z>
+axies:
+    (1, 0, 0) apply p_rot = LOC
+    (0, 1, 0) apply p_rot
+    (0, 0, 1) apply p_rot
+AN = apply p_rot_vel on axies
+
+M(rot) applies rotation matrix rot to axies.
+find rot such that M(rot) == AN
 
 
+vars:
+    facing
+Loc: (0, 1, 0)
+Rot 1: facing direction - rotate sphere around under [XZ]
+Rot 2: foward direction - rotate around perpendicular (+ 1/2π) to facing direction
+Rot 3: side   direction - rotate around facing direction <cos(facing), sin(facing), 0>
 
 
 

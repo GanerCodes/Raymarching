@@ -34,15 +34,6 @@ vec3 rot_XZ_YZ(vec3 p, float r1, float r2) {
     return rot_XZ(rot_YZ(p, r1), r2);
 }
 
-vec3 rotateAxis(vec3 p, vec3 rot) {
-    p = rot_XZ(p, -rot.x);
-    p = rot_XY(p, -rot.y);
-    p = rot_YZ(p, rot.z);
-    p = rot_XY(p, rot.y);
-    p = rot_XZ(p, rot.x);
-    return p;
-}
-
 vec3 angsToDir(float rot1, float rot2) {
     return rot_XZ(rot_XY(vec3(1.0, 0.0, 0.0), rot2  ), rot1  );
 }
@@ -58,4 +49,16 @@ vec3 nearest_point_line(vec3 p, vec3 dir, vec3 orig) {
 }
 vec3 nearest_point_line(vec3 p, vec3 dir) {
     return dir * dot(p, normalize(dir));
+}
+
+vec3 rotate3(vec3 p, vec3 rot) {
+    p = rot_XZ(p, -rot.x);
+    p = rot_XY(p, -rot.y);
+    p = rot_YZ(p, rot.z);
+    p = rot_XY(p, rot.y);
+    p = rot_XZ(p, rot.x);
+    return p;
+}
+vec3 rotateAxis(vec3 p, vec3 V, float a) {
+    return rotate3(p, vec3(dirToAng(V), a));
 }
