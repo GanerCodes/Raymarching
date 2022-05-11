@@ -8,7 +8,7 @@ class Vec(PVector):
         self.dimensions = len(a)
         PVector.__init__(self, *a)
     def __str__(self):
-        return "<{}>".format(', '.join(map(lambda x: str(round(x, 4)), self)))
+        return repr(self)
     def __iter__(self):
         l = [self.x, self.y]
         if self.dimensions > 2:
@@ -17,7 +17,7 @@ class Vec(PVector):
     def __str__(self):
         return repr(self)
     def __repr__(self):
-        return '<{}>'.format(', '.join("{: 010.4f}".format(i) for i in self))
+        return '<{}>'.format(', '.join("{: 02.4f}".format(i) for i in self))
     def __getattribute__(self, name):
         if 4 > len(name) > 1 and not len(set(name).difference(set('xyz'))):
             return Vec(*(getattr(self, i) for i in name))
@@ -135,13 +135,34 @@ def angsToDir(rots):
     p.setXZ(*rot(p.x, p.z, rots.x))
     return p
 
-fixmod = lambda x: ((x + PI) % TWO_PI) - PI
-
 def find_euler(p1, p2, p3):
-    a = atan2(p2.z, p3.z)
-    b = atan2(p1.z, hypot(p2.z, p3.z))
-    c = atan2(p1.y, p1.x)
-    return v3(a, b, c)
+    # a = atan2(p2.z, p3.z)
+    # b = atan2(p1.z, cos(a))#hypot(p2.z, p3.z))
+    # c = atan2(p1.y, p1.x)
+    # return v3(a, b, c)
+    
+    item = list(zip(*[list(p1), list(p2), list(p3)]))
+    tol = 0.000001
+    if abs(item[0][0]) < tol and abs(item[1][0]) < tol:
+        eul1 = 0
+        eul2 = atan2(-item[2][0], item[0][0])
+        eul3 = atan2(-item[1][2], item[1][1])
+    else:   
+        eul1 = atan2(item[1][0],item[0][0])
+        sp = sin(eul1)
+        cp = cos(eul1)
+        eul2 = atan2(-item[2][0],cp*item[0][0]+sp*item[1][0])
+        eul3 = atan2(sp*item[0][2]-cp*item[1][2],cp*item[1][1]-sp*item[0][1])
+    
+    return v3(eul3, eul2, eul1)
+
+def cross(a, b):
+    return v3(a.y*b.z-a.z*b.y,
+              a.z*b.x-a.x*b.z,
+              a.x*b.y-a.y-b.x)
+
+def dot(a, b):
+    return sum(i*o for i, o in zip(a, b))
 
 class _BASIS(object):
     def __init__(self):
@@ -154,15 +175,3 @@ class _BASIS(object):
         return list(self)[i]
 
 BASIS = _BASIS()
-
-def app(p1, q):
-    p1 = rot_YZ(p1, q.x)
-    p1 = rot_XZ(p1, q.y)
-    p1 = rot_XY(p1, q.z)
-    return p1
-    
-# for x in [-1, 1]:
-#     for y in [-1, 1]:
-#         for z in [-1, 1]:
-#             w = v3(HALF_PI * 0.95, HALF_PI * 0.95, HALF_PI * 0.95) * v3(x, y, z)
-#             print("{} : {}".format(w, find_euler(*(app(i, w) for i in BASIS))))

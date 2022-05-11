@@ -1,6 +1,7 @@
 head.glsl
 helpers.glsl
 vectors.glsl
+quaternions.glsl
 random.glsl
 SDFs.glsl
 

@@ -17,6 +17,7 @@ Rot 3: side   direction - rotate around facing direction <cos(facing), sin(facin
 
 
 
+
 How to rotate point P by ζ degrees around line θ, φ
 
 0. Consider line:

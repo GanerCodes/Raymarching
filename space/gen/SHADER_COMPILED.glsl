@@ -96,10 +96,8 @@ vec2 rotCentered(vec2 p, vec2 a, float r) {
 }
 mat2 rotMatrix(vec2 p, float r) {
     vec2 s = spl(r);
-    return mat2(
-        s.x, -s.y,
-        s.y,  s.x
-    );
+    return mat2(s.x, -s.y,
+                s.y,  s.x);
 }
 vec3 rot_XY(vec3 p, float r){
     vec2 m = p.xy * rotMatrix(p.xy, r);
@@ -144,6 +142,24 @@ vec3 rotate3(vec3 p, vec3 rot) {
 }
 vec3 rotateAxis(vec3 p, vec3 V, float a) {
     return rotate3(p, vec3(dirToAng(V), a));
+}
+
+////////// ./data/quaternions.glsl //////////
+
+vec4 quat_mul(vec4 q1, vec4 q2) {
+    return vec4(q1.w*q2.x+q1.x*q2.w+q1.y*q2.z-q1.z*q2.y,
+                q1.w*q2.y-q1.x*q2.z+q1.y*q2.w+q1.z*q2.x,
+                q1.w*q2.z+q1.x*q2.y-q1.y*q2.x+q1.z*q2.w,
+                q1.w*q2.w-q1.x*q2.x-q1.y*q2.y-q1.z*q2.z);
+}
+vec4 quat_conj(vec4 q) {
+    return vec4(-q.xyz, q.w);
+}
+vec4 quat_rot(vec4 p, vec4 vhat, float angle) {
+    angle *= 0.5;
+    vec4 q = quat_mul(vec4(vec3(0.0), sin(angle)), vhat);
+    q.w = cos(angle);
+    return quat_mul(quat_mul(q, p), quat_conj(q));
 }
 
 ////////// ./data/random.glsl //////////
@@ -224,7 +240,7 @@ float sdf_cone(vec3 p, float r) { // TODO the actual math
 uniform vec3 play_loc;
 uniform vec3 play_ang;
 
-uniform vec3 what1, what2, what3, what4;
+uniform vec4 quat;
 
 vec3 base_color = vec3(0.0, 0.0, 0.0);
 vec4 f(vec3 p, bool is_dist) {
@@ -234,19 +250,13 @@ vec4 f(vec3 p, bool is_dist) {
     float ground = p.y + ground_offset;
     
     vec3 t = p;
-    t = rot_YZ(t, play_ang.x);
-    t = rot_XZ(t, play_ang.y);
-    t = rot_XY(t, play_ang.z);
+    // t = quat_rot(vec4(t, 0.0), quat, HALF_PI).xyz;
+    t = rot_XY(t, -play_ang.z);
+    t = rot_XZ(t, -play_ang.y);
+    t = rot_YZ(t, -play_ang.x);
     float funnycube = 0.8 * sdf_rect(t, vec3(1.0));
-    float[] cs = {
-        ground,
-        funnycube
-    };
     
-    float c = min(cs[0], cs[1]);
-    // for(int i = 2; i < cs.length(); i++) {
-    //     c = min(c, cs[i]);
-    // }
+    float c = min(ground, funnycube);
     
     if(is_dist) {
         return vec4(c);
@@ -256,9 +266,6 @@ vec4 f(vec3 p, bool is_dist) {
     if(c <= I) {
         if(ground <= I) return vec4(0.0, 0.0, 0.02 + 0.1 * float(sin(p.y + ground_offset) + cos(p.x) * sin(p.z) <= 0.0), 0.05);
         if(funnycube <= I) return vec4(0.5, 0.4, 0.5, 0.2);
-        // if(whatsphere1 <= I) return vec4(0.4, 0.5, 0.5, 0.0);
-        // if(whatsphere2 <= I) return vec4(0.7, 0.5, 0.5, 0.0);
-        // if(lins2 <= I) return vec4(0.5, 0.5, 0.5, 0.0);
     }
     return vec4(1.0, 1.0, 1.0, 0.0);
 }

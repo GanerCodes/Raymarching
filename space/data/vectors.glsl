@@ -13,10 +13,8 @@ vec2 rotCentered(vec2 p, vec2 a, float r) {
 }
 mat2 rotMatrix(vec2 p, float r) {
     vec2 s = spl(r);
-    return mat2(
-        s.x, -s.y,
-        s.y,  s.x
-    );
+    return mat2(s.x, -s.y,
+                s.y,  s.x);
 }
 vec3 rot_XY(vec3 p, float r){
     vec2 m = p.xy * rotMatrix(p.xy, r);
