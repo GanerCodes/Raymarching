@@ -21,6 +21,12 @@ class quat:
         return repr(self)
     def __iter__(self):
         return iter((self.x, self.y, self.z, self.r))
+    def vec(self):
+        return v3(self.x, self.y, self.z)
+    def dir(self):
+        return v3(2 * (self.x * self.z - self.r * self.y),
+                  2 * (self.y * self.z + self.r * self.x),
+                  1 - 2 * (self.x ** 2 + self.y ** 2))
     def norm(self):
         h = hypot(*self)
         return quat(*(i/h for i in self))
@@ -35,7 +41,7 @@ def quat_create_axis_rot(vhat, angle):
 
 def quat_rot_point(p, vhat, angle):
     q = quat_create_axis_rot(vhat, angle)
-    return q * p * (-q)
+    return q * quat(*p) * (-q)
 
 def quat_rot_axis(axis, a):
     a = 0.5 * a

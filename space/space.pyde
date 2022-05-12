@@ -37,10 +37,10 @@ def sendPara(shade):
     shade.set("u_resolution", float(width), float(height))
     shade.set("u_time", 0.001 * timeScale * millis())
     
-    shade.set("vp_ang", *camera.ang)
     shade.set("vp_loc", *camera.loc)
-    # shade.set("play_ang", *player.ang)
+    shade.set("vp_ang", *camera.ang)
     shade.set("play_loc", *player.loc)
+    shade.set("play_quat", *player.ang)
 
 def setup():
     global buffer, upscale, mouse_pos
@@ -113,19 +113,27 @@ def draw():
             player.ang_vel.y -= ang_speed
         if hasKey(Key.LEFT):
             player.ang_vel.y += ang_speed
-        if hasKey(Key.W):
-            pass
-            # player.loc_vel.add(rot_XZ(rot_YZ(v3(0, 0,  0.01), -player.ang.y), player.ang.x))
-            
-        # if hasKey(Key.S):
-            # player.loc_vel.add(rot_XZ(rot_YZ(v3(0, 0, -0.01), -player.ang.y), player.ang.x))
+        if hasKey(Key.UP):
+            player.loc_vel += 0.02 * (quat_rot_axis(v3(1,0,0), HALF_PI) * player.ang).dir().norm()
     
-    player.ang = quat_rot_axis(v3(1, 0, 0), player.ang_vel.x) * player.ang
-    player.ang = quat_rot_axis(v3(0, 1, 0), player.ang_vel.y) * player.ang
-    player.ang = quat_rot_axis(v3(0, 0, 1), player.ang_vel.z) * player.ang
-    shade.set("quat", *player.ang)
+    player.loc += player.loc_vel
     
-    player.loc_vel.mult(0.75)
+    # camera.loc = player.loc + v3(5, 5, 0)
+    
+    if player.loc.y < 0:
+        # player.loc_vel.y += 0.1 * min(1, -player.loc.y)
+        player.loc_vel.y = abs(player.loc_vel.y * 0.5)
+    else:
+        player.loc_vel.y -= 0.012
+    
+    player.ang = quat_rot_axis(BASIS.x, player.ang_vel.x) * player.ang
+    player.ang = quat_rot_axis(BASIS.y, player.ang_vel.y) * player.ang
+    player.ang = quat_rot_axis(BASIS.z, player.ang_vel.z) * player.ang
+    
+    
+    player.loc_vel.x *= 0.975
+    player.loc_vel.y *= 0.975
+    player.loc_vel.z *= 0.975
     player.ang_vel = player.ang_vel * (v3(0.95 - hypot(*player.ang_vel)))
     
     sendPara(shade)
