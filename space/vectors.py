@@ -36,6 +36,9 @@ class Vec(PVector):
             return Vec(*(i * other for i in self))
     def __neg__(self):
         return Vec(*(-i for i in self))
+    def norm(self):
+        h = hypot(*self)
+        return Vec(*(i/h for i in self))
     def copy(self):
         return Vec(*self)
     def setXY(self, a, b=None):

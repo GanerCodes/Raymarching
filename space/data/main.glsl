@@ -34,7 +34,7 @@ void main() {
         int i = 0;
         while(dat.w > 0.01 && i < 5) {
             i++;
-            vec3 n = norm(ray, 0.00001);
+            vec3 n = norm(ray, 0.0025);
             n = reflect_norm(ray_step, n);
             ray = raymarch(
                 ray.xyz + 2.0 * MIN_DIST_THRESHOLD * n,

@@ -27,32 +27,33 @@ class quat:
     def copy(self):
         return quat(*self)
 
-def quat_create_rot(vhat, angle):
+def quat_create_axis_rot(vhat, angle):
     angle *= 0.5
     q = quat(r=sin(angle)) * vhat
     q.r = cos(angle)
-    return q
+    return q.norm()
 
-def quat_rot_axis(p, vhat, angle):
-    q = quat_create_rot(vhat, angle)
+def quat_rot_point(p, vhat, angle):
+    q = quat_create_axis_rot(vhat, angle)
     return q * p * (-q)
+
+def quat_rot_axis(axis, a):
+    a = 0.5 * a
+    axis = axis.norm() * sin(a)
+    return quat(axis.x, axis.y, axis.z, cos(a)).norm()
 
 def quat_get_euler(q):
     sinr_cosp = 2 * (q.r * q.x + q.y * q.z)
     cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y)
-    
     roll = atan2(sinr_cosp, cosr_cosp)
-
     sinp = 2 * (q.r * q.y - q.z * q.x)
     if abs(sinp) >= 1:
         pitch = (1 if sinp >= 0 else -1) * HALF_PI
     else:
         pitch = asin(sinp)
-
     siny_cosp = 2 * (q.r * q.z + q.x * q.y)
     cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
     yaw = atan2(siny_cosp, cosy_cosp)
-
     return v3(roll, pitch, yaw)
 
 quatX, quatY, quatZ = quat(1,0,0), quat(0,1,0), quat(0,0,1)

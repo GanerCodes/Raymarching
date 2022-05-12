@@ -250,13 +250,16 @@ vec4 f(vec3 p, bool is_dist) {
     float ground = p.y + ground_offset;
     
     vec3 t = p;
-    // t = quat_rot(vec4(t, 0.0), quat, HALF_PI).xyz;
-    t = rot_XY(t, -play_ang.z);
-    t = rot_XZ(t, -play_ang.y);
-    t = rot_YZ(t, -play_ang.x);
-    float funnycube = 0.8 * sdf_rect(t, vec3(1.0));
+    t = quat_mul(
+        quat_mul(
+            quat,
+            vec4(t, 0.0)),
+        quat_conj(quat)
+    ).xyz;
     
-    float c = min(ground, funnycube);
+    float player = 0.8 * sdf_rect(t, vec3(0.5, 1.0, 0.5));
+    
+    float c = min(ground, player);
     
     if(is_dist) {
         return vec4(c);
@@ -264,10 +267,13 @@ vec4 f(vec3 p, bool is_dist) {
     
     float I = MIN_DIST_THRESHOLD * 2.0;
     if(c <= I) {
-        if(ground <= I) return vec4(0.0, 0.0, 0.02 + 0.1 * float(sin(p.y + ground_offset) + cos(p.x) * sin(p.z) <= 0.0), 0.05);
-        if(funnycube <= I) return vec4(0.5, 0.4, 0.5, 0.2);
+        if(ground <= I) return vec4(0.0, 0.0, 0.02 + 0.1 * smoothstep(
+            -0.05, 0.05,
+            (sin(p.y+ground_offset)+cos(p.x)*sin(p.z))
+        ), 0.05);
+        if(player <= I) return vec4(2.0 * max(0, max(0.5, t.y) - 0.5), 0.4, 0.35, 0.1);
     }
-    return vec4(1.0, 1.0, 1.0, 0.0);
+    return vec4(0.0);
 }
 
 ////////// ./data/marching.glsl //////////
@@ -337,7 +343,7 @@ void main() {
         int i = 0;
         while(dat.w > 0.01 && i < 5) {
             i++;
-            vec3 n = norm(ray, 0.00001);
+            vec3 n = norm(ray, 0.0025);
             n = reflect_norm(ray_step, n);
             ray = raymarch(
                 ray.xyz + 2.0 * MIN_DIST_THRESHOLD * n,

@@ -10,7 +10,7 @@ timeScale = 1
 screenshotUpscale = 2.5
 screenshotRes = (3840, 2160)
 camera = Obj3d(v3(2, 1, 0), v2(0, 0))
-player = Player3d(v3(0, 1, 0), quat(1, 0, 0))
+player = Player3d(v3(0, 1, 0), quat(0, 1, 0))
 mode = "camera"
 
 if not os.path.isdir("gen"):
@@ -100,41 +100,33 @@ def draw():
             moveVec.add(v3( 0, -1,  0))
         camera.loc.add(moveVec.setMag((25.0 if hasKey(Key.CTRL) else 5.0) / frameRate))
     elif mode == "player":
-        if hasKey(Key.RIGHT):
-            player.ang_vel.x += 0.025
-        if hasKey(Key.LEFT):
-            player.ang_vel.x -= 0.025
-        if hasKey(Key.UP):
-            player.ang_vel.z += 0.025
-        if hasKey(Key.DOWN):
-            player.ang_vel.z -= 0.025
+        ang_speed = 0.01
         if hasKey(Key.D):
-            player.ang_vel.y += 0.025
+            player.ang_vel.x += ang_speed
         if hasKey(Key.A):
-            player.ang_vel.y -= 0.025
-        # if hasKey(Key.W):
+            player.ang_vel.x -= ang_speed
+        if hasKey(Key.W):
+            player.ang_vel.z -= ang_speed
+        if hasKey(Key.S):
+            player.ang_vel.z += ang_speed
+        if hasKey(Key.RIGHT):
+            player.ang_vel.y -= ang_speed
+        if hasKey(Key.LEFT):
+            player.ang_vel.y += ang_speed
+        if hasKey(Key.W):
+            pass
             # player.loc_vel.add(rot_XZ(rot_YZ(v3(0, 0,  0.01), -player.ang.y), player.ang.x))
+            
         # if hasKey(Key.S):
             # player.loc_vel.add(rot_XZ(rot_YZ(v3(0, 0, -0.01), -player.ang.y), player.ang.x))
     
-    a = player.ang.copy()
-    player.ang = quat_create_rot(quat(1, 0, 0), player.ang_vel.x) * (-player.ang)
-    player.ang = quat_create_rot(quat(0, 1, 0), player.ang_vel.y) * (-player.ang)
-    player.ang = quat_create_rot(quat(0, 0, 1), player.ang_vel.z) * (-player.ang)
-    print(a, '->', player.ang)
-    
-    # u, v = v3(1,0,0), v3(player.ang.x, player.ang.y, player.ang.z).normalize()
-    # cost, rx = dot(u, v), cross(u, v)
-    # s = sqrt((1 + cost) * 2)
-    # i = 1 / s
-    # q = quat(rx.x * i, rx.y * i, rx.z * i, 0.5 * s)
-    # eulers = quat_get_euler(q)
-    eulers = quat_get_euler(player.ang)
-    print(eulers)
-    shade.set("play_ang", *eulers)
+    player.ang = quat_rot_axis(v3(1, 0, 0), player.ang_vel.x) * player.ang
+    player.ang = quat_rot_axis(v3(0, 1, 0), player.ang_vel.y) * player.ang
+    player.ang = quat_rot_axis(v3(0, 0, 1), player.ang_vel.z) * player.ang
+    shade.set("quat", *player.ang)
     
     player.loc_vel.mult(0.75)
-    player.ang_vel.mult(0.75)
+    player.ang_vel = player.ang_vel * (v3(0.95 - hypot(*player.ang_vel)))
     
     sendPara(shade)
     buffer.filter(shade)
