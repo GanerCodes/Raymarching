@@ -4,8 +4,8 @@ from vectors import *
 from quaternions import *
 from keys import *
 
-FPS = 75
-upscale = 0.4
+FPS = 120
+upscale = 0.5
 timeScale = 1
 screenshotUpscale = 2.5
 screenshotRes = (3840, 2160)
@@ -36,7 +36,6 @@ def create_main_shader(file_name=tmp_shader_name, shader_list_file="file_list.tx
 def sendPara(shade):
     shade.set("u_resolution", float(width), float(height))
     shade.set("u_time", 0.001 * timeScale * millis())
-    
     shade.set("vp_loc", *camera.loc)
     shade.set("vp_ang", *camera.ang)
     shade.set("play_loc", *player.loc)
@@ -44,8 +43,8 @@ def sendPara(shade):
 
 def setup():
     global buffer, upscale, mouse_pos
-    # fullScreen(P2D)
-    size(1664, 936, P2D)
+    fullScreen(P2D)
+    # size(1664, 936, P2D)
     
     textFont(createFont("Monospaced", 12))
     
@@ -53,8 +52,12 @@ def setup():
     frameRate(FPS)
     buffer = createGraphics(int(width * upscale), int(height * upscale), P2D)
 
+up = 0
 def draw():
-    global shade, vp_loc, vp_ang, shaderReloadTime, bruh
+    global shade, vp_loc, vp_ang, shaderReloadTime, bruh, up
+    m = millis()
+    tick = m >= up
+    if tick: up = m + 1000 / 75
     
     if millis() >= shaderReloadTime:
         shaderReloadTime = millis() + 1000
@@ -99,7 +102,7 @@ def draw():
         if hasKey(Key.SHIFT):
             moveVec.add(v3( 0, -1,  0))
         camera.loc.add(moveVec.setMag((25.0 if hasKey(Key.CTRL) else 5.0) / frameRate))
-    elif mode == "player":
+    elif mode == "player" and tick:
         ang_speed = 0.01
         if hasKey(Key.D):
             player.ang_vel.x += ang_speed
@@ -116,25 +119,22 @@ def draw():
         if hasKey(Key.UP):
             player.loc_vel += 0.02 * (quat_rot_axis(v3(1,0,0), HALF_PI) * player.ang).dir().norm()
     
-    player.loc += player.loc_vel
-    
-    # camera.loc = player.loc + v3(5, 5, 0)
-    
-    if player.loc.y < 0:
-        # player.loc_vel.y += 0.1 * min(1, -player.loc.y)
-        player.loc_vel.y = abs(player.loc_vel.y * 0.5)
-    else:
-        player.loc_vel.y -= 0.012
-    
-    player.ang = quat_rot_axis(BASIS.x, player.ang_vel.x) * player.ang
-    player.ang = quat_rot_axis(BASIS.y, player.ang_vel.y) * player.ang
-    player.ang = quat_rot_axis(BASIS.z, player.ang_vel.z) * player.ang
-    
-    
-    player.loc_vel.x *= 0.975
-    player.loc_vel.y *= 0.975
-    player.loc_vel.z *= 0.975
-    player.ang_vel = player.ang_vel * (v3(0.95 - hypot(*player.ang_vel)))
+    if tick:
+        player.loc += player.loc_vel
+        camera.loc = player.loc + v3(2.2, 2.2, 0)
+        if player.loc.y < 0:
+            player.loc_vel.y += 0.1 * min(1, -player.loc.y)
+            player.loc.y *= 0.99
+        else:
+            player.loc_vel.y -= 0.012
+        
+        player.ang = quat_rot_axis(BASIS.x, player.ang_vel.x) * player.ang
+        player.ang = quat_rot_axis(BASIS.y, player.ang_vel.y) * player.ang
+        player.ang = quat_rot_axis(BASIS.z, player.ang_vel.z) * player.ang
+        
+        player.loc_vel.x *= 0.975
+        player.loc_vel.z *= 0.975
+        player.ang_vel = player.ang_vel * (v3(0.95 - hypot(*player.ang_vel)))
     
     sendPara(shade)
     buffer.filter(shade)

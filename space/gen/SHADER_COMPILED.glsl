@@ -321,7 +321,7 @@ vec3 raymarch(vec3 ray, vec3 ray_step, int max_itter, vec2 thres) {
 ////////// ./data/main.glsl //////////
 
 void main() {
-    float FOV = 130;
+    float FOV = 150;
     float cam_dist = 100.0;
     
     float hFOV = FOV / 2.0 * tan(PI * FOV / 360.0) * 2.0;
