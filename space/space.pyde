@@ -1,8 +1,8 @@
 import time as Time, os
 from vectors import *
 from quaternions import *
-from keys import *
 from physics import *
+from keys import *
 for filename in ('shader.py', 'screenshot.py'):
     exec(open(filename).read())
 
