@@ -18,6 +18,8 @@ uniform vec2 vp_ang;
 float MIN_DIST_THRESHOLD = 0.001;
 float MAX_DIST_THRESHOLD = 1000.0;
 int   MAX_ITTERS         = 256;
+int   MAX_BOUNCE_COUNT   = 12;
+float MCR = 2.0 * MIN_DIST_THRESHOLD;
 
 ////////// ./data/helpers.glsl //////////
 
@@ -232,13 +234,77 @@ float sdf_cone(vec3 p, float r) { // TODO the actual math
 
 ////////// ./data/objects/keyboard.glsl //////////
 
- 
+vec4 object_keyboard(vec3 p, bool dist) {
+    float s = 0.2;
+    vec2 g = mod(p.xz + s, 2.0 * s) - s;
+    vec3 t = vec3(g.x, p.y, g.y);
+    
+    float keys = max(
+        0.5 * mix(sdf_rect(t, vec3(0.65 * s)),
+            sdf_rect(t + vec3(0,0.1,0), vec3(0.4 * s)),
+            0.2),
+        sdf_rect(p + 0.67 * s * vec3(1.0, 0.0, 1.0), vec3(2.4, 1.0, 1.2)));
+    
+    float board = 0.5 * mix(
+        sdf_rect(p + vec3(s,0.25,s), vec3(2.45, 0.2, 1.25)),
+        sdf_rect(p + vec3(s,0.0,s), vec3(2.4, 0.2, 1.2)),
+        0.1);
+    
+    float c = min(keys, board);
+    if(dist) return vec4(c);
+    
+    if(keys <= MCR && p.y >= 0.0 && t.x > -0.05 && t.x < 0.05) {
+        float q = t.z - 0.02 * cos(53.0 * t.x + sum(p.xz));
+        if(q <= 0 && q >= -0.03) {
+            return vec4(0.0, 0.0, 0.4, 0.0);
+        }
+    }
+    if(board <= MCR) {
+        return vec4(0.0, 0.0, 0.23, 0.01);
+    }
+    return vec4(0.0, 0.0, 0.5, 0.01);
+}
 
+////////// ./data/objects/monitor.glsl //////////
+
+vec4 object_monitor(vec3 p, bool dist) {
+    vec3 t = p - vec3(0, 2.5, 0);
+    
+    float invr = sdf_rect(t - vec3(0, 0, 3.7), vec3(2.0));
+    float base = max(0.5 * mix(
+            sdf_rect(t, vec3(3.0)),
+            sdf_sphere(t - vec3(0, 0, -3), 5),
+            0.1),
+          -invr);
+    float plane = max(sdf_rect(t, vec3(2.0, 2.0, 3.5)), max(p.z - 2.8, 2.0 - p.z));
+    
+    float c = min(base, plane);
+    if(dist) return vec4(c);
+    
+    if(c <= MCR) {
+        if(base <= MCR) {
+            return vec4(0.0, 0.0, 0.6, 0.0);
+        }
+        if(invr <= MCR && p.z >= 0) {
+            return vec4(0.0, 0.0, 0.0, 1.0 + 0.5 * sin(u_time));
+        }
+    }
+    
+    return vec4(0.0);
+}
 
 ////////// ./data/func.glsl //////////
 
 uniform vec3 play_loc;
 uniform vec4 play_quat;
+
+struct cheese {
+    float x;
+};
+cheese transcheese(cheese xd) {
+    xd.x += 2;
+    return xd;
+}
 
 vec3 base_color = vec3(0.0, 0.0, 0.0);
 vec4 f(vec3 p, bool is_dist) {
@@ -256,8 +322,9 @@ vec4 f(vec3 p, bool is_dist) {
     ).xyz;
     
     vec3 noseloc = t - vec3(0, 0.8, 0);
-    
     float body = sdf_rect(t, vec3(0.5, 1.0, 0.5));
+    
+    float skybox = -sdf_sphere(p, 500.0);
     
     float player = max(
         min(body,
@@ -265,15 +332,27 @@ vec4 f(vec3 p, bool is_dist) {
         sdf_rect(t, vec3(0.5, 2.0, 0.5)));
     player *= 0.5;
     
-    float c = min(ground, player);
+    vec3 monitor_loc = p + vec3(0.0, 0.0, 6.0);
+    float[] objects = {
+        ground,
+        player,
+        object_keyboard(p, true).x,
+        object_monitor(monitor_loc, true).x,
+        skybox
+    };
     
-    if(is_dist) {
-        return vec4(c);
+    float c = min(objects[0], objects[1]);
+    for(int i = 2; i < objects.length(); i++) {
+        c = min(c, objects[i]);
     }
     
-    float I = MIN_DIST_THRESHOLD * 2.0;
-    if(c <= I) {
-        if(player <= I) {
+    if(is_dist) return vec4(c);
+    
+    if(c <= MCR) {
+        // if(objects[4] <= MCR) {
+            // return vec4(mix(-0.2, 0.1, 0.5 + 0.5 * sin(mod(0.5 * time + tan(0.001 * sum(p)), TWO_PI))), 0.75, 0.8, 0.0);
+        // }
+        if(player <= MCR) {
             float q = 0.1 * smoothstep(1.0, 1.5, t.y);
             float w = max(
                 0.2 * smoothstep(0.63, 0.69, length(t.xz)),
@@ -282,8 +361,14 @@ vec4 f(vec3 p, bool is_dist) {
             
             return vec4(mix(0.1 * t.y + w, 0.5, q), 0.5, 0.75, 0.5 - 0.5 * q);
         }
+        if(objects[2] <= MCR) {
+            return object_keyboard(p, false);
+        }
+        if(objects[3] <= MCR) {
+            return object_monitor(monitor_loc, false);
+        }
     }
-    if(ground <= I) {
+    if(ground <= MCR) {
         return vec4(0.0,0.0,0.02 + 0.1 * smoothstep(-0.05, 0.05,(sin(p.y+ground_offset)+cos(p.x)*sin(p.z))), 0.05);
     }
     return vec4(0.0);
@@ -321,7 +406,7 @@ vec3 raymarch(vec3 ray, vec3 ray_step, int max_itter, vec2 thres) {
 ////////// ./data/main.glsl //////////
 
 void main() {
-    float FOV = 150;
+    float FOV = 125;
     float cam_dist = 100.0;
     
     float hFOV = FOV / 2.0 * tan(PI * FOV / 360.0) * 2.0;
@@ -349,17 +434,16 @@ void main() {
         
         vec4 dat = f(
             ray + MIN_DIST_THRESHOLD * ray_step,
-            false
-        );
+            false);
         
         float car = dat.w;
         int i = 0;
-        while(dat.w > 0.01 && i < 5) {
+        while(dat.w >= 0.01 && i < MAX_BOUNCE_COUNT) {
             i++;
-            vec3 n = norm(ray, 0.0025);
+            vec3 n = norm(ray, 0.001);
             n = reflect_norm(ray_step, n);
             ray = raymarch(
-                ray.xyz + 2.0 * MIN_DIST_THRESHOLD * n,
+                ray.xyz + 3.5 * MIN_DIST_THRESHOLD * n,
                 n,
                 MAX_ITTERS,
                 vec2(MIN_DIST_THRESHOLD, MAX_DIST_THRESHOLD)
@@ -371,11 +455,7 @@ void main() {
                 car *= new.w;
                 dat = vec4(
                     rgb2hsv(
-                        mix(
-                            hsv2rgb(dat.xyz),
-                            hsv2rgb(new.xyz),
-                            dat.w
-                        )
+                        mix(hsv2rgb(dat.xyz), hsv2rgb(new.xyz), dat.w)
                     ),
                     car
                 );

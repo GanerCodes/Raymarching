@@ -1,17 +1,24 @@
-class Key: pass
+class KEY: pass
 for i in range(65, 91):
-    setattr(Key,     chr(i), i)
+    setattr(KEY,     chr(i), i)
 for i in range(48, 58):
-    setattr(Key, '_'+chr(i), i)
-Key.SPACE = 32
-Key.SHIFT = 16
-Key.CTRL  = 17
-Key.LEFT  = 37
-Key.UP    = 38
-Key.RIGHT = 39
-Key.DOWN  = 40
-keys = {}
+    setattr(KEY, '_'+chr(i), i)
+KEY.SPACE = 32
+KEY.SHIFT = 16
+KEY.CTRL  = 17
+KEY.LEFT  = 37
+KEY.UP    = 38
+KEY.RIGHT = 39
+KEY.DOWN  = 40
+_keys = {}
 
-def hasKey(key):
-    global keys
-    return key in keys and keys[key]
+class __keys:
+    def __getattr__(self, name):
+        global _keys
+        name = getattr(KEY, name)
+        return (name in _keys) and _keys[name]
+keys = __keys()
+
+def setKey(key, state=True):
+    global _keys
+    _keys[key] = state

@@ -34,11 +34,17 @@ class Vec(PVector):
             return Vec(*(i * o for i, o in zip(self, other)))
         else:
             return Vec(*(i * other for i in self))
+    def __imul__(self, other):
+        return self * other
     def __neg__(self):
         return Vec(*(-i for i in self))
     def norm(self):
         h = hypot(*self)
+        if h == 0:
+            return self
         return Vec(*(i/h for i in self))
+    def setMag(self, mag=1):
+        return mag * self.norm()
     def copy(self):
         return Vec(*self)
     def setXY(self, a, b=None):

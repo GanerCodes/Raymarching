@@ -27,6 +27,8 @@ class quat:
         return v3(2 * (self.x * self.z - self.r * self.y),
                   2 * (self.y * self.z + self.r * self.x),
                   1 - 2 * (self.x ** 2 + self.y ** 2))
+    def dirn(self):
+        return self.dir().norm()
     def norm(self):
         h = hypot(*self)
         return quat(*(i/h for i in self))

@@ -1,3 +1,34 @@
+https://ganer.xyz/s/795a877d39656bf7
+    Find P's by finding when |ray_step| < MCR
+    
+    // Properties of "void"
+    pos = start_pos
+    total_density = 0
+    total_clr = (0, 0, 0)
+    
+    // Alg
+    (density, clr) at each point P:
+        total_clr = mix(
+            total_clr, clr,
+            (1 - total_density) * min(1, density * distance(pos, P)))
+        pos = P
+        total_density += density
+        if total_density > 0.99:
+            return
+
+SDF temp:
+vec4 object_name(vec3 p, bool dist) {
+    float v = sdf_sphere(p, 0.5);
+    
+    float c = v;
+    if(dist) return vec4(c);
+    
+    if(v <= MCR) {
+        return vec4(0.0, 1.0, 1.0, 0.0);
+    }
+    return vec4(0.0);
+}
+
 axies:
     (1, 0, 0) apply p_rot = LOC
     (0, 1, 0) apply p_rot

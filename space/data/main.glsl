@@ -1,5 +1,5 @@
 void main() {
-    float FOV = 150;
+    float FOV = 125;
     float cam_dist = 100.0;
     
     float hFOV = FOV / 2.0 * tan(PI * FOV / 360.0) * 2.0;
@@ -27,17 +27,16 @@ void main() {
         
         vec4 dat = f(
             ray + MIN_DIST_THRESHOLD * ray_step,
-            false
-        );
+            false);
         
         float car = dat.w;
         int i = 0;
-        while(dat.w > 0.01 && i < 5) {
+        while(dat.w >= 0.01 && i < MAX_BOUNCE_COUNT) {
             i++;
-            vec3 n = norm(ray, 0.0025);
+            vec3 n = norm(ray, 0.001);
             n = reflect_norm(ray_step, n);
             ray = raymarch(
-                ray.xyz + 2.0 * MIN_DIST_THRESHOLD * n,
+                ray.xyz + 3.5 * MIN_DIST_THRESHOLD * n,
                 n,
                 MAX_ITTERS,
                 vec2(MIN_DIST_THRESHOLD, MAX_DIST_THRESHOLD)
@@ -49,11 +48,7 @@ void main() {
                 car *= new.w;
                 dat = vec4(
                     rgb2hsv(
-                        mix(
-                            hsv2rgb(dat.xyz),
-                            hsv2rgb(new.xyz),
-                            dat.w
-                        )
+                        mix(hsv2rgb(dat.xyz), hsv2rgb(new.xyz), dat.w)
                     ),
                     car
                 );

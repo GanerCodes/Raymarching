@@ -3,9 +3,9 @@ vec3 norm(vec3 p, float delta) {
     float base = f(p, true).x;
     
     return normalize(vec3(
-        f(p + delta*vec3(1,0,0), true).x - base,
-        f(p + delta*vec3(0,1,0), true).x - base,
-        f(p + delta*vec3(0,0,1), true).x - base
+        f(p + vec3(delta,0,0), true).x - base,
+        f(p + vec3(0,delta,0), true).x - base,
+        f(p + vec3(0,0,delta), true).x - base
     ));
 }
 

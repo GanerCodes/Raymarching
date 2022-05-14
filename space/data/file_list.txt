@@ -6,6 +6,7 @@ random.glsl
 SDFs.glsl
 
 objects/keyboard.glsl
+objects/monitor.glsl
 
 func.glsl
 marching.glsl
