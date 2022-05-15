@@ -1,4 +1,4 @@
-uniform vec3 play_loc;
+/* uniform vec3 play_loc;
 uniform vec4 play_quat;
 
 // struct cheese {
@@ -75,4 +75,4 @@ vec4 f(vec3 p, bool is_dist) {
         return vec4(0.0,0.0,0.02 + 0.1 * smoothstep(-0.05, 0.05,(sin(p.y+ground_offset)+cos(p.x)*sin(p.z))), 0.05);
     }
     return vec4(0.0);
-}
+} */

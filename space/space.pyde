@@ -8,7 +8,7 @@ for filename in ('shader.py', 'screenshot.py'):
 
 FPS = 90
 timeScale = 1
-upscale = 0.5
+upscale = 0.5 
 screenshotUpscale = 2.5
 screenshotRes = (3840, 2160)
 mode = "camera"
@@ -38,6 +38,8 @@ def setup():
     global buffer, upscale, mouse_pos, time
     # fullScreen(P2D)
     size(1664, 936, P2D)
+    g.surface.setTitle("Space!")
+    g.surface.setResizable(True)
     set_FPS(FPS)
     
     textFont(createFont("Monospaced", 12))

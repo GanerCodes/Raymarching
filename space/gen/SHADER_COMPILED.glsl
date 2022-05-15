@@ -17,9 +17,11 @@ uniform vec2 vp_ang;
 
 float MIN_DIST_THRESHOLD = 0.001;
 float MAX_DIST_THRESHOLD = 1000.0;
+float DENSITY_THRESHOLD  = 0.99;
 int   MAX_ITTERS         = 256;
 int   MAX_BOUNCE_COUNT   = 12;
 float MCR = 2.0 * MIN_DIST_THRESHOLD;
+float TMCR = 2.0 * MCR;
 
 ////////// ./data/helpers.glsl //////////
 
@@ -295,16 +297,16 @@ vec4 object_monitor(vec3 p, bool dist) {
 
 ////////// ./data/func.glsl //////////
 
-uniform vec3 play_loc;
+/* uniform vec3 play_loc;
 uniform vec4 play_quat;
 
-struct cheese {
-    float x;
-};
-cheese transcheese(cheese xd) {
-    xd.x += 2;
-    return xd;
-}
+// struct cheese {
+//     float x;
+// };
+// cheese transcheese(cheese xd) {
+//     xd.x += 2;
+//     return xd;
+// }
 
 vec3 base_color = vec3(0.0, 0.0, 0.0);
 vec4 f(vec3 p, bool is_dist) {
@@ -372,35 +374,133 @@ vec4 f(vec3 p, bool is_dist) {
         return vec4(0.0,0.0,0.02 + 0.1 * smoothstep(-0.05, 0.05,(sin(p.y+ground_offset)+cos(p.x)*sin(p.z))), 0.05);
     }
     return vec4(0.0);
-}
+} */
 
 ////////// ./data/marching.glsl //////////
 
-// Uses function f
-vec3 norm(vec3 p, float delta) {
-    float base = f(p, true).x;
-    
-    return normalize(vec3(
-        f(p + delta*vec3(1,0,0), true).x - base,
-        f(p + delta*vec3(0,1,0), true).x - base,
-        f(p + delta*vec3(0,0,1), true).x - base
-    ));
+struct Material {
+    vec3 color;
+    float dense;
+    bool reflective;
+};
+Material Solid(vec3 color, float dense) { return Material(color, dense, false); } 
+
+Material aether = Solid(vec3(0.05), 0.01);
+
+struct Tracer {
+    vec3 cur_pos;
+    vec3 pre_pos;
+    vec3 dir;
+    float dist;
+    bool flag;
+    Material tot_material;
+    Material cur_material;
+};
+
+Tracer trace(vec3 cur_pos, vec3 dir) {
+    return Tracer(cur_pos, cur_pos,
+                  dir, 0.0, false,
+                  aether, aether);
 }
 
-// Uses function f
-vec3 raymarch(vec3 ray, vec3 ray_step, int max_itter, vec2 thres) {
-    float totalDist = 0.0;
-    for(int i = 0; i < max_itter; i++) {
-        float dis = f(ray, true).x;
-        totalDist += dis;
-        ray += dis * ray_step;
-        if(dis < thres.x) {
-            return ray;
-        }else if(totalDist > thres.y) {
-            return vec3(-1.0);
+Tracer f(Tracer tracer, bool dist) {
+    vec3 p = tracer.cur_pos;
+    
+    float ball_1 = sdf_sphere(p * vec3(1.0, 0.5, 1.0), 1.0);
+    float ball_2 = sdf_sphere(p + vec3(3.0, 0.0, 0.0), 1.0);
+    float ball_3 = sdf_sphere(p + vec3(1.0, 5.0, 0.0), 1.0);
+    
+    tracer.dist = min(ball_1, min(ball_2, ball_3));
+    if(dist) return tracer;
+    
+    if(tracer.dist <= MCR) { // TODO two materials at once
+        if(ball_1 <= MCR) {
+            tracer.cur_material = Solid(
+                vec3(1.0, 0.0, 0.0),
+                0.3);
         }
+        if(ball_2 <= MCR) {
+            tracer.cur_material = Solid(
+                vec3(0.0, 1.0, 0.0),
+                10.0);
+        }
+        if(ball_3 <= MCR) {
+            tracer.cur_material = Material(
+                vec3(0.6, 0.9, 1.0),
+                0.5,
+                true);
+        }
+        return tracer;
     }
-    return vec3(-1.0);
+    
+    tracer.cur_material = aether;
+    return tracer;
+}
+
+vec3 norm(Tracer tracer, float delta) {
+    float base = f(tracer, true).dist;
+    vec3 pos = tracer.cur_pos;
+    
+    tracer.cur_pos = pos + vec3(delta,0,0);
+    float a = f(tracer, true).dist;
+    tracer.cur_pos = pos + vec3(0,delta,0);
+    float b = f(tracer, true).dist;
+    tracer.cur_pos = pos + vec3(0,0,delta);
+    float c = f(tracer, true).dist;
+    
+    return normalize(vec3(a, b, c) - base);
+}
+
+Tracer raymarch(Tracer tracer) {
+    int bounce_count = 0;
+    tracer.cur_material = f(tracer, false).cur_material;
+    for(int itter = 0; itter < MAX_ITTERS; itter++) {
+        tracer = f(tracer, true);
+        
+        float last_material_dist = dist(tracer.pre_pos, tracer.cur_pos);
+        float mat_dense = min(1.0, tracer.cur_material.dense * last_material_dist);
+        float dense = (1 - tracer.tot_material.dense) * mat_dense;
+        float tot_dense = tracer.tot_material.dense + dense;
+        
+        if(tracer.dist > MIN_DIST_THRESHOLD) tracer.cur_material = aether;
+        float d = abs(tracer.dist);
+        bool check = d > MAX_DIST_THRESHOLD || tot_dense > DENSITY_THRESHOLD || itter == MAX_ITTERS - 1;
+        if(d < MIN_DIST_THRESHOLD || check) {
+            if(tracer.flag && !check) {
+                tracer.cur_pos += TMCR * tracer.dir;
+                continue;
+            } tracer.flag = true;
+            
+            tracer.pre_pos = tracer.cur_pos;
+            tracer.tot_material = Material(
+                mix(tracer.tot_material.color,
+                    tracer.cur_material.color,
+                    dense),
+                tot_dense,
+                false);
+            
+            tracer.cur_material = f(tracer, false).cur_material;
+            if(tracer.cur_material.reflective) {
+                float newt = (1 - tracer.tot_material.dense) * tracer.cur_material.dense;
+                tracer.tot_material.color = mix(tracer.tot_material.color,
+                                                tracer.cur_material.color,
+                                                newt);
+                tracer.tot_material.dense += newt;
+                tracer.dir = norm(tracer, 0.001);
+                tracer.pre_pos = tracer.cur_pos;
+                bounce_count++;
+                if(bounce_count == MAX_BOUNCE_COUNT) {
+                    return tracer;
+                }
+            }
+            if(check) return tracer;
+        }else{
+            tracer.flag = false;
+        }
+        
+        tracer.cur_pos += abs(tracer.dist) * tracer.dir;
+    }
+    return tracer;
 }
 
 ////////// ./data/main.glsl //////////
@@ -415,79 +515,13 @@ void main() {
         -cam_dist
     );
     
-    float alpha = 1.0;
-    float missing_alpha = 1.0;
-    
     vec3 cast_s = vp_loc;
     vec3 cast_e = vp_loc + rot_XZ_YZ(p_e, -vp_ang.y, vp_ang.x);
     vec3 ray_step = normalize(cast_e - cast_s);
-    vec3 ray = raymarch(
-        cast_s,
-        ray_step,
-        MAX_ITTERS,
-        vec2(MIN_DIST_THRESHOLD, MAX_DIST_THRESHOLD)
-    );
+    Tracer tracer = trace(cast_s, ray_step);
+    tracer = raymarch(tracer);
+    vec3 clr = tracer.tot_material.color;
     
-    vec3 clr = base_color;
-    if(ray != vec3(-1.0)) {
-        vec3 lightRay = ray;
-        
-        vec4 dat = f(
-            ray + MIN_DIST_THRESHOLD * ray_step,
-            false);
-        
-        float car = dat.w;
-        int i = 0;
-        while(dat.w >= 0.01 && i < MAX_BOUNCE_COUNT) {
-            i++;
-            vec3 n = norm(ray, 0.001);
-            n = reflect_norm(ray_step, n);
-            ray = raymarch(
-                ray.xyz + 3.5 * MIN_DIST_THRESHOLD * n,
-                n,
-                MAX_ITTERS,
-                vec2(MIN_DIST_THRESHOLD, MAX_DIST_THRESHOLD)
-            );
-            if(ray != vec3(-1.0)) {
-                vec4 new = f(ray + MIN_DIST_THRESHOLD * ray_step, false);
-                
-                // this is not optimal
-                car *= new.w;
-                dat = vec4(
-                    rgb2hsv(
-                        mix(hsv2rgb(dat.xyz), hsv2rgb(new.xyz), dat.w)
-                    ),
-                    car
-                );
-                ray_step = normalize(n);
-            }else{
-                break;
-            }
-        }
-        
-        float len = dist(lightRay, cast_s);
-        vec3 lightSource = vec3(15.0, 20.0, -10.0);
-        vec3 lightStep = normalize(lightRay - lightSource);
-        vec3 lightLoc = raymarch(
-            lightSource,
-            lightStep,
-            MAX_ITTERS,
-            vec2(MIN_DIST_THRESHOLD, 1.25 * MAX_DIST_THRESHOLD)
-        );
-        
-        clr = hsv2rgb(dat.xyz) * max(0.75, 1.0 - max(0.0, dist(lightRay, cast_s) / 20.0 - 0.5));
-            
-        float d1 = dist(lightLoc, lightRay);
-        if(lightLoc != vec3(-1.0) && d1 <= 1.0) {
-            clr *= max(0.65, clamp(0.9 * (1 / 1.25) * max(0.0, 1.25 - 3.0 * d1), 0.0, 1.0));
-        }else{
-            clr *= 0.65;
-        }
-    }else{
-        clr *= dist(vec3(50.0, 25.0, 0.0), vec3(cast_s)) * 0.016;
-        alpha = missing_alpha;
-    }
-    
-    gl_FragColor = vec4(clr, alpha);
+    gl_FragColor = vec4(clr, 1.0);
 }
 
