@@ -5,6 +5,9 @@ shaderReloadTime = 0
 shade = None
 tmp_shader_name = str(sketchPath("gen/SHADER_COMPILED.glsl"))
 
+class ShaderMainFileError(Exception):
+    pass
+
 def create_main_shader(file_name=tmp_shader_name, shader_list_file="file_list.txt"):
     try:
         with open(shader_list_file) as f:
@@ -19,9 +22,16 @@ def create_main_shader(file_name=tmp_shader_name, shader_list_file="file_list.tx
                 f.write("////////// {} //////////\n\n".format(shade_name))
                 try:
                     with open(shade_name, 'r') as part:
-                        f.write(part.read() + '\n\n')
+                        read = part.read()
+                        if shade_name == shader_list[-1] and len(read) < 12:
+                            raise ShaderMainFileError("Main shader too short!")
+                        f.write(read + '\n\n')
+                except ShaderMainFileError:
+                    raise
                 except Exception as e:
                     print('Error reading from "{}"! {}'.format(shade_name, e))
+    except ShaderMainFileError:
+        raise
     except Exception as e:
         print("Error reading shader list! {}".format(e))
     
@@ -47,7 +57,7 @@ def check_shader():
                 raise java.lang.RuntimeException("Shader too short to compile.")
             shade = loadShader(tmp_shader_name)
             shade.set("u_resolution", float(width), float(height))
-        except java.lang.RuntimeException as err:
+        except (java.lang.RuntimeException, Exception) as err:
             print("Error compiling shader! {}".format(err))
             refresh_shader_prompt = True
             shade = None
