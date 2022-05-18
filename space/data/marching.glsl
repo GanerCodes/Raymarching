@@ -1,157 +1,111 @@
-const uint BIT_SOLID = 1;
-const uint BIT_REFLECTIVE = 2;
-
-struct Material {
-    vec3 color;
-    float dense;
-    uint state;
-} aether = {vec3(0.0), 0.0, 0};
-
-Material Solid(vec3 color, float dense) { return Material(color, dense, 0); }
-Material Solid(vec3 color) { return Material(color, 1.0, BIT_SOLID); }
-Material Solid(vec4 color) { return Material(color.rgb, color.a, 0); }
-Material Solid(float r, float g, float b, float d) { return Material(vec3(r,g,b), d, 0); }
-Material Solid(float r, float g, float b) { return Material(vec3(r,g,b), 0, BIT_SOLID); }
-
-struct Tracer_materials {
-    Material tot; // Total
-    Material cur; // Current
-    Material def; // Default
-};
-struct Tracer {
-    vec3 cur_pos;
-    vec3 pre_pos;
-    vec3 dir;
-    float dist;
-    bool flag;
-    int bounce_count;
-    Tracer_materials mat;
-};
-
-Tracer make_tracer(vec3 cur_pos, vec3 dir, Material default_material) {
-    return Tracer(cur_pos, cur_pos, dir, 0.0, false, 0, Tracer_materials(aether, aether, default_material));
-}
-
-Tracer f(Tracer tracer, bool dist) {
-    vec3 p = tracer.cur_pos;
-    
-    // float obj_1 = sdf_rect(p + vec3(1.0, -2.0, 0.0), vec3(1.0, 2.0, 1.0));
-    float ground_offset = 4.0;
-    float ground = p.y + ground_offset;
-    float obj_1 = sdf_sphere(p, 1.0);
-    float obj_2 = sdf_sphere(p - vec3(7.0, 0.0, 0.0), 1.0);
-    float obj_3 = 0.8 * mix(
-        sdf_sphere(p - vec3(1.0, 5.0, 0.0), 1.0),
-        sdf_rect(p - vec3(1.0, 5.0, 0.0), vec3(1.0)),
-        0.5
-    );
-    float obj_4 = sdf_rect(p - vec3(2.0, 1.0, 2.0), vec3(1.0));
-    
-    tracer.dist = min(min(min(obj_1, ground), obj_4), min(obj_2, obj_3));
-    if(dist) return tracer;
-    
-    if(tracer.dist <= MCR) { // TODO two materials at once
-        if(ground <= MCR) {
-            tracer.mat.cur = Solid(
-                vec3(0.02 + 0.1 * smoothstep(-0.05, 0.05,(sin(p.y+ground_offset)+cos(p.x)*sin(p.z)))),
-                0.05
-            );
-        }
-        if(obj_2 <= MCR) {
-            tracer.mat.cur = Solid(0.0, 1.0, 0.0);
-        }
-        if(obj_4 <= MCR) {
-            tracer.mat.cur = Solid(0.0, 0.0, 1.0);
-        }
-        if(obj_3 <= MCR) {
-            tracer.mat.cur = Material(
-                vec3(0.6, 0.9, 1.0), 0.3, BIT_REFLECTIVE);
-        }
-        if(obj_1 <= MCR) {
-            tracer.mat.cur = Solid(1.0, 0.0, 0.0, 0.4);
-        }
-        return tracer;
-    }
-    
-    tracer.mat.cur = tracer.mat.def;
-    return tracer;
-}
-
-vec3 norm(Tracer tracer, float delta) {
-    float base = f(tracer, true).dist;
+vec3 norm(Tracer tracer, float delt) {
+    float base = scene(tracer, true).dist;
     vec3 pos = tracer.cur_pos;
     
-    tracer.cur_pos = pos + vec3(delta,0,0);
-    float a = f(tracer, true).dist;
-    tracer.cur_pos = pos + vec3(0,delta,0);
-    float b = f(tracer, true).dist;
-    tracer.cur_pos = pos + vec3(0,0,delta);
-    float c = f(tracer, true).dist;
+    tracer.cur_pos = pos + delt*vec3(1,0,0);
+    float x = scene(tracer, true).dist;
+    tracer.cur_pos = pos + delt*vec3(0,1,0);
+    float y = scene(tracer, true).dist;
+    tracer.cur_pos = pos + delt*vec3(0,0,1);
+    float z = scene(tracer, true).dist;
     
-    return normalize(vec3(a, b, c) - base);
+    return normalize(vec3(x, y, z) - base);
 }
 
 Tracer raymarch(Tracer tracer) {
-    tracer.mat.cur = f(tracer, false).mat.cur;
+    // Set current material to material ray is initally interacting with
+    tracer.mat.cur = scene(tracer, false).mat.cur;
+    
     for(int itter = 0; itter < MAX_ITTERS; itter++) {
-        tracer = f(tracer, true);
-        if(tracer.dist > MCR) {
-            // Outside any shape, use default material
-            tracer.mat.cur = tracer.mat.def;
-        }
+        // Get distance from SDF scene
+        tracer = scene(tracer, true);
         
-        float last_material_dist = dist(tracer.pre_pos, tracer.cur_pos);
-        float mat_dense = min(1.0, tracer.mat.cur.dense * last_material_dist);
-        float prop = 1.0 - tracer.mat.tot.dense;
-        float dense = prop * mat_dense;
-        float tot_dense = tracer.mat.tot.dense + dense;
+        // If outside shape, use default material
+        if(tracer.dist > MCR) tracer.mat.cur = tracer.mat.def;
         
+        // Distance to surface, independant of inside or outside
         float d = abs(tracer.dist);
-        bool check = d > MAX_DIST_THRESHOLD || tot_dense > DENSITY_THRESHOLD;
-        if(d < MIN_DIST_THRESHOLD || check) {
-            // Check if flag, aka hasn't yet left edge of surface
-            if(tracer.flag && !check) {
-                // Move a minimum amount
-                tracer.cur_pos += TMCR * tracer.dir;
-                continue;
+        // Distance to previous surface contact
+        float last_material_dist = dist(tracer.pre_pos, tracer.cur_pos);
+        // How much material this ray has interacted with since last surface interaction
+        float mat_dense = min(1.0, tracer.mat.cur.dense * last_material_dist);
+        // Proportion of total color-density that remains to be changed
+        float prop = 1.0 - tracer.mat.tot.dense;
+        // Actual density effect
+        float dense = prop * mat_dense;
+        
+        // Ray's calculated total density.
+        // 0 = no collisions with any type of opaque object
+        // 1 = has hit a solid object or traversed a certain distance over a translucent material
+        float tot_dense = tracer.mat.tot.dense + dense;
+        // Intersecting a surface
+        bool surface_check = d <= MIN_DIST_THRESHOLD;
+        // Must return in these conditions (not bounce / get denser)
+        bool exit_check = (d > MAX_DIST_THRESHOLD) || (tot_dense > DENSITY_THRESHOLD) || (itter == MAX_ITTERS - 1);
+        
+        // Check for interaction, boundry change, maximum travel distance
+        if(surface_check || exit_check) {
+            if(surface_check) {
+                // Useful indicatior for having at least one surface intersection 
+                tracer.mat.tot.state = 1;
+                // Check if were still crossing a previously found border, if so move some minimum amount until "unstuck"
+                if(tracer.flag && !exit_check) {
+                    // Move a small amount
+                    tracer.cur_pos += TMCR * tracer.dir;
+                    continue;
+                }
+                // New surface, mark as so
+                tracer.flag = true;
+                // Set surface interaction as previous position for use in next surface.
+                tracer.pre_pos = tracer.cur_pos;
+            }else{
+                // Not within range of a surface, next interaction within threshold is new
+                tracer.flag = false;
             }
-            tracer.flag = true;
             
-            // Merge materials
+            // Merge material
             tracer.mat.tot.color = mix(tracer.mat.tot.color, tracer.mat.cur.color, dense);
             tracer.mat.tot.dense = tot_dense;
             
-            // Get net material
-            tracer.mat.cur = f(tracer, false).mat.cur;
+            // Store previous material
+            Material old_material = tracer.mat.cur;
+            // Get new material
+            tracer.mat.cur = scene(tracer, false).mat.cur;
             
+            if(tracer.mat.cur.state == BIT_DEFLT && tracer.mat.def.state == 3) return tracer;
+            
+            // Solid, set remaining light color to the color and return
             if(tracer.mat.cur.state == BIT_SOLID) {
-                // Solid, set remaining light color to the color
                 tracer.mat.tot.color = mix(tracer.mat.tot.color, tracer.mat.cur.color, prop);
                 tracer.mat.tot.dense = 1.0;
                 return tracer;
             }
             
-            if(tracer.mat.cur.state == BIT_REFLECTIVE) {
-                // Reflective, merge color according density property, then bounce light
-                float newt = prop * tracer.mat.cur.dense;
-                tracer.mat.tot.color = mix(tracer.mat.tot.color, tracer.mat.cur.color, newt);
-                tracer.mat.tot.dense += newt;
-                tracer.dir = norm(tracer, 0.001);
-                tracer.bounce_count++;
-                if(tracer.bounce_count == MAX_BOUNCE_COUNT) return tracer;
+            // Reflective, merge color according to its density property, then bounce light
+            if(tracer.mat.cur.state == BIT_RFLCT) {
+                // newp is what proportion of the remaining ray color will be the reflective material's color
+                float newp = prop * tracer.mat.cur.dense;
+                tracer.mat.tot.color = mix(tracer.mat.tot.color, tracer.mat.cur.color, newp);
+                tracer.mat.tot.dense += newp;
+                // Use previous state as a reflection isn't an indication that material has changed
+                tracer.mat.cur = old_material;
+                
+                // Increase bounce count
+                tracer.num_bounce++;
+                // Return if bounce limit has been reached
+                if(tracer.num_bounce == MAX_BOUNCE_COUNT) return tracer;
+                tracer.flag = false;
+                
+                vec3 n = norm(tracer, 0.001); // Surface normal
+                tracer.dir = reflect(tracer.dir, n); // Reflect trace direction off normal
             }
             
-            if(check) {
-                // Some exit condition reached
-                return tracer;
-            }
-            
-            tracer.pre_pos = tracer.cur_pos;
-        }else{
-            tracer.flag = false;
+            // Return on must exit condition
+            if(exit_check) return tracer;
         }
         
-        tracer.cur_pos += abs(tracer.dist) * tracer.dir;
+        // Move ray safe distance in its direction
+        tracer.cur_pos += max(d, MIN_DIST_THRESHOLD) * tracer.dir;
     }
     return tracer;
 }

@@ -1,16 +1,36 @@
+Tracer scene(Tracer tracer, bool no_mat) {
+    vec3 p = tracer.cur_pos;
+    
+    float ground = p.y;
+    // float cube = sdf_sphere(p - vec3(2.0, 1.0, 2.0), vec3(1.0));
+    float shape1 = sdf_sphere(p - vec3(2.0, 5.0, 2.0), 1.0);
+    float shape2 = sdf_rect(p - vec3(-2.0, 5.0, 2.0), vec3(1.0));
+    
+    tracer.dist = min(ground, min(shape1, shape2));
+    if(no_mat) return tracer;
+    
+    // Not within any object, use default material
+    if(tracer.dist > MCR) {
+        tracer.mat.cur = tracer.mat.def;
+        return tracer;
+    }
+    
+    if(ground <= MCR) {
+        // tracer.mat.cur = Material(0.25 * vec3(cos(p.x)*sin(p.z) <= 0), 0.5, BIT_RFLCT);
+        tracer.mat.cur = Solid(mod(0.5 + 0.1 * p.x, 1.0), 0.5, 0.0);
+    }else if(min(shape1, shape2) <= MCR) {
+        tracer.mat.cur = Solid(0.0, 1.0, 0.0);
+    }
+    
+    return tracer;
+}
+
+
 /* uniform vec3 play_loc;
 uniform vec4 play_quat;
 
-// struct cheese {
-//     float x;
-// };
-// cheese transcheese(cheese xd) {
-//     xd.x += 2;
-//     return xd;
-// }
-
 vec3 base_color = vec3(0.0, 0.0, 0.0);
-vec4 f(vec3 p, bool is_dist) {
+vec4 scene(vec3 p, bool is_dist) {
     float time = u_time;
     
     float ground_offset = 0.5;

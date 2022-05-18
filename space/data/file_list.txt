@@ -4,6 +4,7 @@ vectors.glsl
 quaternions.glsl
 random.glsl
 SDFs.glsl
+materials.glsl
 
 objects/keyboard.glsl
 objects/monitor.glsl

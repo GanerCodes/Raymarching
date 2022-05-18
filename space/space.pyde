@@ -116,13 +116,13 @@ def keyPressed():
         return
     
     if keyCode in (93, 91):
-        buffer = createGraphics(int(width * upscale), int(height * upscale), P2D)
         if keyCode == 93:
             upscale *= 2
             return
         if keyCode == 91:
             upscale /= 2
             return
+        buffer = createGraphics(int(width * upscale), int(height * upscale), P2D)
     
 def keyReleased():
     global keys
