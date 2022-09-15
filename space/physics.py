@@ -16,4 +16,4 @@ def physics(dt, player, camera):
     lv1, lv2 = exp(-0.25 * dt), exp(-0.01 * dt)
     player.loc_vel *= v3(lv1, lv2, lv1)
     
-    # camera.loc = player.loc + v3(-3.25, 2.5, 0)
+    camera.loc = player.loc + v3(-3.25, 2.5, 0)

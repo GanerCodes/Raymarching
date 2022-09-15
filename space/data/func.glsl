@@ -1,3 +1,6 @@
+uniform vec3 play_loc;
+uniform vec4 play_quat;
+
 Tracer scene(Tracer tracer, bool no_mat) {
     vec3 p = tracer.cur_pos;
     
@@ -6,7 +9,18 @@ Tracer scene(Tracer tracer, bool no_mat) {
     float shape1 = sdf_sphere(p - vec3(2.0, 5.0, 2.0), 1.0);
     float shape2 = sdf_rect(p - vec3(-2.0, 5.0, 2.0), vec3(1.0));
     
-    tracer.dist = min(ground, min(shape1, shape2));
+    vec3 t = p - play_loc;
+    t = quat_mul(
+        quat_mul(
+            play_quat,
+            vec4(t, 0.0)),
+        quat_conj(play_quat)
+    ).xyz;
+    
+    vec3 noseloc = t - vec3(0, 0.8, 0);
+    float body = sdf_rect(t, vec3(0.5, 1.0, 0.5));
+    
+    tracer.dist = min(min(ground, body), min(shape1, shape2));
     if(no_mat) return tracer;
     
     // Not within any object, use default material
@@ -16,10 +30,13 @@ Tracer scene(Tracer tracer, bool no_mat) {
     }
     
     if(ground <= MCR) {
-        // tracer.mat.cur = Material(0.25 * vec3(cos(p.x)*sin(p.z) <= 0), 0.5, BIT_RFLCT);
-        tracer.mat.cur = Solid(mod(0.5 + 0.1 * p.x, 1.0), 0.5, 0.0);
+        tracer.mat.cur = Material(0.8 * vec3(cos(p.x)*sin(p.z) <= 0), 0.75, BIT_RFLCT);
+        // tracer.mat.cur = Solid(mod(0.5 + 0.1 * p.x, 1.0), 0.5, 0.0);
     }else if(min(shape1, shape2) <= MCR) {
         tracer.mat.cur = Solid(0.0, 1.0, 0.0);
+    }else if(body <= MCR) {
+        tracer.mat.cur = Solid(hsv2rgb(vec3(0.5 * length(t.xz)*t.y, 0.6, 0.8)));
+        // tracer.mat.cur = Solid(1.0, 1.0, 0.0);
     }
     
     return tracer;

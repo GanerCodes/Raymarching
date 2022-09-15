@@ -338,6 +338,9 @@ vec4 object_monitor(vec3 p, bool dist) {
 
 ////////// ./data/func.glsl //////////
 
+uniform vec3 play_loc;
+uniform vec4 play_quat;
+
 Tracer scene(Tracer tracer, bool no_mat) {
     vec3 p = tracer.cur_pos;
     
@@ -346,7 +349,18 @@ Tracer scene(Tracer tracer, bool no_mat) {
     float shape1 = sdf_sphere(p - vec3(2.0, 5.0, 2.0), 1.0);
     float shape2 = sdf_rect(p - vec3(-2.0, 5.0, 2.0), vec3(1.0));
     
-    tracer.dist = min(ground, min(shape1, shape2));
+    vec3 t = p - play_loc;
+    t = quat_mul(
+        quat_mul(
+            play_quat,
+            vec4(t, 0.0)),
+        quat_conj(play_quat)
+    ).xyz;
+    
+    vec3 noseloc = t - vec3(0, 0.8, 0);
+    float body = sdf_rect(t, vec3(0.5, 1.0, 0.5));
+    
+    tracer.dist = min(min(ground, body), min(shape1, shape2));
     if(no_mat) return tracer;
     
     // Not within any object, use default material
@@ -356,10 +370,13 @@ Tracer scene(Tracer tracer, bool no_mat) {
     }
     
     if(ground <= MCR) {
-        // tracer.mat.cur = Material(0.25 * vec3(cos(p.x)*sin(p.z) <= 0), 0.5, BIT_RFLCT);
-        tracer.mat.cur = Solid(mod(0.5 + 0.1 * p.x, 1.0), 0.5, 0.0);
+        tracer.mat.cur = Material(0.8 * vec3(cos(p.x)*sin(p.z) <= 0), 0.75, BIT_RFLCT);
+        // tracer.mat.cur = Solid(mod(0.5 + 0.1 * p.x, 1.0), 0.5, 0.0);
     }else if(min(shape1, shape2) <= MCR) {
         tracer.mat.cur = Solid(0.0, 1.0, 0.0);
+    }else if(body <= MCR) {
+        tracer.mat.cur = Solid(hsv2rgb(vec3(0.5 * length(t.xz)*t.y, 0.6, 0.8)));
+        // tracer.mat.cur = Solid(1.0, 1.0, 0.0);
     }
     
     return tracer;
@@ -572,21 +589,21 @@ void main() {
     
     if(inital_tracer.mat.tot.state == 1) {
         // Tracer intersected a surface, mark it
-        vec3 l_cast_s = mix(
-            inital_tracer.cur_pos,
-            rot_XZ(vec3(5.0, 40.0, 5.0), u_time),
-            0.5);
+        // vec3 l_cast_s = mix(
+            // p_cast_s,
+            // rot_XZ(vec3(5.0, 40.0, 5.0), u_time),
+            // 0.5);
+        vec3 l_cast_s = inital_tracer.cur_pos + vec3(0.0, 50.0, 0.0);
         vec3 l_cast_e = inital_tracer.cur_pos;
         Tracer light_tracer = raymarch(make_tracer(
             l_cast_s,
             normalize(l_cast_e - l_cast_s),
             Material(vec3(0.0), 0.0, BIT_DEBUG)));
         
-        if(light_tracer.mat.tot.state == 1) {
-            float d = dist(light_tracer.cur_pos, l_cast_e);
-            
-            float t = 0.1 * d;
-            clr *= 1.0 - min(0.5, t);
+        float d = dist(light_tracer.cur_pos, inital_tracer.cur_pos);
+        if(d < 0.05) {//light_tracer.mat.tot.state == 1) {
+            // float d = dist(light_tracer.cur_pos, l_cast_e);
+            clr *= 1.0;
         }else{
             clr *= 0.5;
         }

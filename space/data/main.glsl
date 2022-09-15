@@ -17,21 +17,21 @@ void main() {
     
     if(inital_tracer.mat.tot.state == 1) {
         // Tracer intersected a surface, mark it
-        vec3 l_cast_s = mix(
-            inital_tracer.cur_pos,
-            rot_XZ(vec3(5.0, 40.0, 5.0), u_time),
-            0.5);
+        // vec3 l_cast_s = mix(
+            // p_cast_s,
+            // rot_XZ(vec3(5.0, 40.0, 5.0), u_time),
+            // 0.5);
+        vec3 l_cast_s = inital_tracer.cur_pos + vec3(0.0, 50.0, 0.0);
         vec3 l_cast_e = inital_tracer.cur_pos;
         Tracer light_tracer = raymarch(make_tracer(
             l_cast_s,
             normalize(l_cast_e - l_cast_s),
             Material(vec3(0.0), 0.0, BIT_DEBUG)));
         
-        if(light_tracer.mat.tot.state == 1) {
-            float d = dist(light_tracer.cur_pos, l_cast_e);
-            
-            float t = 0.1 * d;
-            clr *= 1.0 - min(0.5, t);
+        float d = dist(light_tracer.cur_pos, inital_tracer.cur_pos);
+        if(d < 0.05) {//light_tracer.mat.tot.state == 1) {
+            // float d = dist(light_tracer.cur_pos, l_cast_e);
+            clr *= 1.0;
         }else{
             clr *= 0.5;
         }
